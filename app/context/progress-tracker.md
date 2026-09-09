@@ -4,11 +4,11 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Phase
 
-- Editor chrome foundation complete
+- Authentication foundation complete
 
 ## Current Goal
 
-- Build the shared editor shell: navbar, floating project sidebar, and dialog pattern scaffold ready for future editor screens.
+- Wire Clerk authentication into the app with protected routes, auth pages, redirects, and the editor user menu.
 
 ## Completed
 
@@ -21,6 +21,12 @@ Update this file whenever the current phase, active feature, or implementation s
 - Created `components/editor/project-sidebar.tsx` with a floating slide-over sidebar, project tabs, empty placeholders, and a bottom `New Project` action.
 - Confirmed the existing shadcn dialog primitives match the dark theme token pattern and are ready for future dialog usage.
 - Verified lint, TypeScript, and the relevant build checks for the new components.
+- Installed `@clerk/ui` for the shared Clerk dark theme.
+- Wrapped the root layout with `ClerkProvider` and mapped Clerk appearance variables to the existing CSS tokens.
+- Added protected-first `proxy.ts` with public root, sign-in, and sign-up routes.
+- Added responsive sign-in and sign-up pages with compact product context on large screens and form-only layouts on small screens.
+- Updated `/` to redirect authenticated users to `/editor` and unauthenticated users to the configured sign-in path.
+- Added Clerk's built-in `UserButton` to the editor navbar and created the protected `/editor` destination.
 
 ## In Progress
 
@@ -28,11 +34,11 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Next Up
 
-- Move to the next feature unit after the editor chrome foundation is reviewed.
+- Move to the next feature unit after the authentication foundation is reviewed.
 
 ## Open Questions
 
-- None.
+- The existing environment did not define sign-in/sign-up URL variables, so the standard Clerk variables are read with `/sign-in` and `/sign-up` fallbacks.
 
 ## Architecture Decisions
 
@@ -42,3 +48,4 @@ Update this file whenever the current phase, active feature, or implementation s
 
 - Read the feature spec and required context files before implementation. shadcn generated foundation components should remain unmodified.
 - `next build` with default Turbopack hit an environment port-binding panic while processing CSS; `next build --webpack` completed successfully.
+- Auth routes use Clerk's path-based catch-all pages so the built-in flows retain their nested callback routes.

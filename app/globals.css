@@ -126,4 +126,12 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  :root {
+    --clerk-color-background: var(--bg-surface);
+    --clerk-color-input: var(--bg-elevated);
+    --clerk-color-primary: var(--accent-primary);
+    --clerk-color-foreground: var(--text-primary);
+    --clerk-color-muted-foreground: var(--text-secondary);
+  }
 }
