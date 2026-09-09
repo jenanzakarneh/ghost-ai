@@ -4,11 +4,11 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Phase
 
-- Foundation setup complete
+- Editor chrome foundation complete
 
 ## Current Goal
 
-- Verify the shadcn/ui design system primitives are installed and aligned with the dark Ghost AI workspace.
+- Build the shared editor shell: navbar, floating project sidebar, and dialog pattern scaffold ready for future editor screens.
 
 ## Completed
 
@@ -17,7 +17,10 @@ Update this file whenever the current phase, active feature, or implementation s
 - Added `lucide-react` and the generated shared `lib/utils.ts` `cn()` export.
 - Replaced the generated light theme variables with the Ghost AI dark theme tokens in `globals.css`.
 - Enabled the root `dark` class in `app/layout.tsx` so shadcn dark variants apply.
-- Verified lint, TypeScript, `cn()` merge behavior, and a production build.
+- Created `components/editor/editor-navbar.tsx` with a fixed top nav, left sidebar toggle, and empty center/right sections.
+- Created `components/editor/project-sidebar.tsx` with a floating slide-over sidebar, project tabs, empty placeholders, and a bottom `New Project` action.
+- Confirmed the existing shadcn dialog primitives match the dark theme token pattern and are ready for future dialog usage.
+- Verified lint, TypeScript, and the relevant build checks for the new components.
 
 ## In Progress
 
@@ -25,7 +28,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Next Up
 
-- Move to the next feature unit after the design-system foundation is reviewed.
+- Move to the next feature unit after the editor chrome foundation is reviewed.
 
 ## Open Questions
 
