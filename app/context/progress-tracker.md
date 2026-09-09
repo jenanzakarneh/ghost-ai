@@ -4,27 +4,32 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Phase
 
-- Not started
+- Foundation setup complete
 
 ## Current Goal
 
-- Define the immediate implementation goal here.
+- Verify the shadcn/ui design system primitives are installed and aligned with the dark Ghost AI workspace.
 
 ## Completed
 
-- None yet.
+- Initialized shadcn/ui for the Next.js project.
+- Added Button, Card, Dialog, Input, Tabs, Textarea, and ScrollArea primitives under `components/ui/`.
+- Added `lucide-react` and the generated shared `lib/utils.ts` `cn()` export.
+- Replaced the generated light theme variables with the Ghost AI dark theme tokens in `globals.css`.
+- Enabled the root `dark` class in `app/layout.tsx` so shadcn dark variants apply.
+- Verified lint, TypeScript, `cn()` merge behavior, and a production build.
 
 ## In Progress
 
-- None yet.
+- None.
 
 ## Next Up
 
-- Add the next planned feature unit here.
+- Move to the next feature unit after the design-system foundation is reviewed.
 
 ## Open Questions
 
-- Add unresolved product or implementation questions here.
+- None.
 
 ## Architecture Decisions
 
@@ -32,4 +37,5 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Session Notes
 
-- Add context needed to resume work in the next session.
+- Read the feature spec and required context files before implementation. shadcn generated foundation components should remain unmodified.
+- `next build` with default Turbopack hit an environment port-binding panic while processing CSS; `next build --webpack` completed successfully.
