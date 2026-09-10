@@ -4,11 +4,11 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Phase
 
-- Backend project APIs complete (feature 06).
+- Editor home API integration implemented (feature 07); automated checks complete.
 
 ## Current Goal
 
-- Implement feature 06 project APIs without wiring the UI.
+- Feature 07 implemented; live authenticated verification remains.
 
 ## Completed
 
@@ -42,13 +42,20 @@ Update this file whenever the current phase, active feature, or implementation s
 - Added seven passing API/proxy regression tests with mocked Clerk and Prisma dependencies, covering authorization, owner isolation, defaults, validation, and successful mutations.
 - Verified lint (one existing skill-template warning) and production compilation/TypeScript with `npm run build -- --webpack`.
 
+- Converted `/editor` to a server component and added `lib/projects.ts` to fetch owned and verified-email shared projects without initial client fetching.
+- Added `hooks/use-project-actions.ts` with real create/rename/delete requests, duplicate-submit protection, pending state, and visible recoverable errors.
+- Create previews a stable slug plus 12-character suffix, persists it as the project/room ID, and navigates to `/editor/[projectId]`. API validates room IDs and returns 409 on collision.
+- Sidebar links open real projects. Rename pre-fills the current name and refreshes on success; delete displays the project name and refreshes or redirects to `/editor` for the active workspace.
+- Added a membership-checked workspace shell; real-time canvas remains outside feature 07.
+- All 12 regression tests pass, covering API/proxy authorization, room ID validation/collision, shared-list filtering, mutation navigation, and failure/pending behavior. Lint passes with one pre-existing skill-template warning.
+
 ## In Progress
 
 - None.
 
 ## Next Up
 
-- Wire the editor UI in a separate feature unit after backend verification.
+- Verify the signed-in flow against live Clerk and PostgreSQL, then proceed to the next canvas feature spec.
 
 ## Open Questions
 
@@ -59,14 +66,22 @@ Update this file whenever the current phase, active feature, or implementation s
 
 - Prisma stores relational project metadata and collaborator records in PostgreSQL, while canvas and spec artifacts remain outside the database as future blob-backed files.
 - The project database layer uses a single cached Prisma client instance for hot reload safety in development and a direct Postgres adapter when `DATABASE_URL` is not Prisma Accelerate-based.
-- Project listing in feature 06 is owner-scoped; rename/delete are owner-only. Client-supplied IDs and ownership fields are never used for creation or renaming.
+- Project listing in feature 06 is owner-scoped; rename/delete are owner-only. Arbitrary `id` and ownership fields are ignored. Feature 07 allows a validated `roomId` at creation and stores it as the project ID; rename never changes that ID.
+
+## Feature 07 Validation
+
+- `node --test tests/project-api.test.mjs`: 12 passing tests with mocked dependencies.
+- `npm run lint`: no errors; one existing warning in a Clerk skill template.
+- `npm run build -- --webpack`: passed production compilation, TypeScript, and page generation.
+- `npm run build`: blocked by the existing Turbopack CSS process/port-binding environment error, including an approved escalation retry. Build script remains unchanged.
+- Live browser verification with Clerk and PostgreSQL was not performed; mocked tests do not establish that external-service flow.
 
 ## Session Notes
 
 - Read the feature spec and required context files before implementation. shadcn generated foundation components should remain unmodified.
 - `next build` with default Turbopack hit an environment port-binding panic while processing CSS; `next build --webpack` completed successfully.
 - Auth routes use Clerk's path-based catch-all pages so the built-in flows retain their nested callback routes.
-- Project management is intentionally mock-only; no API or persistence was added per the feature spec.
+- Feature 04 originally implemented mock-only project management; feature 07 replaces the mocks with API mutations.
 - Prisma CLI and client versions were aligned to match the installed dependency stack; the v8 config API is incompatible with this repo’s actual package versions.
-- Feature 06 leaves the UI mock-backed. Run API regression checks with `node --test tests/project-api.test.mjs`; these do not exercise a live Clerk session or database.
+- Feature 07 replaces the mock-backed UI. Run regression checks with `node --test tests/project-api.test.mjs`; these do not exercise a live Clerk session or database.
 - Feature 06: plain `npm run build` first failed fetching Google Fonts; the approved network retry encountered the existing Turbopack port-binding panic. The webpack production build passed without changing the build script.

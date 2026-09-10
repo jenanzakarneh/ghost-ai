@@ -1,5 +1,8 @@
 "use client"
 
+import Link from "next/link"
+import type { Project } from "@/types/project"
+
 import { MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -9,17 +12,11 @@ import { cn } from "cn"
 interface ProjectSidebarProps {
   isOpen: boolean
   onClose: () => void
-  projects: Project[]
+  ownedProjects: Project[]
+  sharedProjects: Project[]
   onCreateProject: () => void
   onRenameProject: (project: Project) => void
   onDeleteProject: (project: Project) => void
-}
-
-export interface Project {
-  id: string
-  name: string
-  slug: string
-  isOwned: boolean
 }
 
 function EmptyProjectState() {
@@ -40,7 +37,7 @@ function ProjectList({
   projects,
   onRenameProject,
   onDeleteProject,
-}: Pick<ProjectSidebarProps, "projects" | "onRenameProject" | "onDeleteProject">) {
+}: Pick<ProjectSidebarProps, "onRenameProject" | "onDeleteProject"> & { projects: Project[] }) {
   if (projects.length === 0) {
     return <EmptyProjectState />
   }
@@ -52,10 +49,10 @@ function ProjectList({
           key={project.id}
           className="group flex items-center justify-between gap-3 rounded-xl border border-surface-border bg-elevated px-3 py-2"
         >
-          <div className="min-w-0">
+          <Link href={`/editor/${encodeURIComponent(project.id)}`} className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-copy-primary">{project.name}</p>
-            <p className="truncate font-mono text-xs text-copy-muted">/{project.slug}</p>
-          </div>
+            <p className="truncate font-mono text-xs text-copy-muted">/{project.id}</p>
+          </Link>
           {project.isOwned && (
             <div className="flex shrink-0 items-center gap-1 opacity-100 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
               <Button
@@ -90,7 +87,8 @@ function ProjectList({
 export function ProjectSidebar({
   isOpen,
   onClose,
-  projects,
+  ownedProjects,
+  sharedProjects,
   onCreateProject,
   onRenameProject,
   onDeleteProject,
@@ -136,7 +134,7 @@ export function ProjectSidebar({
 
               <TabsContent value="my-projects" className="mt-4">
                 <ProjectList
-                  projects={projects.filter((project) => project.isOwned)}
+                  projects={ownedProjects}
                   onRenameProject={onRenameProject}
                   onDeleteProject={onDeleteProject}
                 />
@@ -144,7 +142,7 @@ export function ProjectSidebar({
 
               <TabsContent value="shared" className="mt-4">
                 <ProjectList
-                  projects={projects.filter((project) => !project.isOwned)}
+                  projects={sharedProjects}
                   onRenameProject={onRenameProject}
                   onDeleteProject={onDeleteProject}
                 />

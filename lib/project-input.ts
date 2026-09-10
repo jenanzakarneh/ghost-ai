@@ -18,3 +18,14 @@ export async function readProjectName(request: Request, defaultName?: string) {
 
   return name.trim()
 }
+
+export async function readProjectRoomId(request: Request) {
+  const text = await request.text()
+  const body: unknown = text.trim() ? JSON.parse(text) : {}
+  if (!body || typeof body !== "object" || !("roomId" in body)) return undefined
+  if (typeof body.roomId !== "string" || body.roomId.length > 93 ||
+    !/^[a-z0-9]+(?:-[a-z0-9]+)*-[a-f0-9]{12}$/.test(body.roomId)) {
+    return Response.json({ error: "Invalid room ID" }, { status: 400 })
+  }
+  return body.roomId
+}

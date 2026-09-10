@@ -66,3 +66,9 @@
 3. Auth and ownership are enforced at every mutation boundary.
 4. Client components are used only where browser interactivity or real-time state requires them.
 5. The canvas schema must remain consistent between user-created content and imported templates.
+
+## Editor project integration
+
+- `lib/projects.ts` loads editor lists on the server using Clerk identity and verified emails for collaborator membership.
+- Feature 07 creation may provide a validated slug-and-suffix `roomId`, stored as the project ID and future Liveblocks room ID. Creation without it retains the cuid default. Ownership always comes from Clerk.
+- `/editor/[projectId]` checks owner or verified-email collaborator membership before rendering the workspace shell.

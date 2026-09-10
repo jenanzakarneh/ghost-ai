@@ -118,3 +118,123 @@ test("proxy returns JSON 401 for project APIs and preserves page protection", as
   await proxy(auth, new Request("http://localhost/editor"))
   assert.equal(protectedPage, true)
 })
+
+test("create persists a validated room ID and rejects malformed IDs", async () => {
+  const api = setup()
+  const response = await api.POST(request({ name: "Payments", roomId: "payments-abcdef123456", ownerId: "attacker" }))
+  assert.equal(response.status, 201)
+  assert.deepEqual(api.calls[0].args.data, { name: "Payments", id: "payments-abcdef123456", ownerId: "owner" })
+  for (const roomId of [null, 123, "../project", "no-suffix", "a".repeat(94)]) {
+    const invalid = setup()
+    assert.equal((await invalid.POST(request({ name: "Payments", roomId }))).status, 400)
+    assert.equal(invalid.calls.length, 0)
+  }
+})
+
+test("duplicate room ID returns conflict without overwriting a project", async () => {
+  const api = load("app/api/projects/route.ts", {
+    "@clerk/nextjs/server": { auth: async () => ({ userId: "owner" }) },
+    "@/lib/prisma": { prisma: { project: { create: async () => { throw { code: "P2002" } } } } },
+    "@/lib/project-input": load("lib/project-input.ts"),
+  })
+  assert.equal((await api.POST(request({ name: "Payments", roomId: "payments-abcdef123456" }))).status, 409)
+})
+
+test("editor data uses authenticated ownership and only verified collaborator emails", async () => {
+  let query
+  const { getEditorProjects } = load("lib/projects.ts", {
+    "@clerk/nextjs/server": {
+      auth: { protect: async () => ({ userId: "owner" }) },
+      currentUser: async () => ({ emailAddresses: [
+        { emailAddress: "verified@example.com", verification: { status: "verified" } },
+        { emailAddress: "unverified@example.com", verification: { status: "unverified" } },
+      ] }),
+    },
+    "@/lib/prisma": { prisma: { project: { findMany: async (args) => {
+      query = args
+      return [{ id: "mine", name: "Mine", ownerId: "owner" }, { id: "shared", name: "Shared", ownerId: "other" }]
+    } } } },
+  })
+  assert.deepEqual(await getEditorProjects(), {
+    ownedProjects: [{ id: "mine", name: "Mine", isOwned: true }],
+    sharedProjects: [{ id: "shared", name: "Shared", isOwned: false }],
+  })
+  assert.deepEqual(query.where.OR, [
+    { ownerId: "owner" },
+    { collaborators: { some: { email: { in: ["verified@example.com"], mode: "insensitive" } } } },
+  ])
+})
+
+function actionHarness(activeId) {
+  const values = []
+  let cursor = 0
+  const navigation = []
+  const { useProjectActions } = load("hooks/use-project-actions.ts", {
+    react: {
+      useState: (initial) => {
+        const index = cursor++
+        if (!(index in values)) values[index] = initial
+        return [values[index], (value) => { values[index] = value }]
+      },
+      useRef: (initial) => {
+        const index = cursor++
+        if (!(index in values)) values[index] = { current: initial }
+        return values[index]
+      },
+    },
+    "next/navigation": { useRouter: () => Object.fromEntries(["push", "replace", "refresh"].map((method) => [method, (...args) => navigation.push([method, ...args])])) },
+  })
+  return { navigation, render: () => { cursor = 0; return useProjectActions(activeId) } }
+}
+
+test("project actions submit previewed ID, navigate, refresh, and redirect active deletion", async (t) => {
+  const requests = []
+  t.mock.method(globalThis, "fetch", async (url, options) => {
+    requests.push({ url, ...options })
+    return options.method === "DELETE" ? new Response(null, { status: 204 }) : Response.json({ project: { id: "created" } })
+  })
+  const harness = actionHarness("active")
+  harness.render().openCreateDialog()
+  harness.render().setProjectName("Payments Platform")
+  const create = harness.render()
+  assert.match(create.roomIdPreview, /^payments-platform-[a-f0-9]{12}$/)
+  await create.submitCreate()
+  assert.deepEqual(JSON.parse(requests[0].body), { name: "Payments Platform", roomId: create.roomIdPreview })
+  assert.deepEqual(harness.navigation.shift(), ["push", "/editor/created"])
+  harness.render().openRenameDialog({ id: "active", name: "Original", isOwned: true })
+  assert.equal(harness.render().projectName, "Original")
+  harness.render().setProjectName("Renamed")
+  await harness.render().submitRename()
+  assert.equal(requests.at(-1).url, "/api/projects/active")
+  assert.deepEqual(JSON.parse(requests.at(-1).body), { name: "Renamed" })
+  assert.deepEqual(harness.navigation.shift(), ["refresh"])
+  harness.render().openDeleteDialog({ id: "other", name: "Other", isOwned: true })
+  await harness.render().submitDelete()
+  assert.deepEqual(harness.navigation.shift(), ["refresh"])
+  harness.render().openDeleteDialog({ id: "active", name: "Active", isOwned: true })
+  await harness.render().submitDelete()
+  assert.deepEqual(harness.navigation, [["replace", "/editor"], ["refresh"]])
+})
+
+test("project actions prevent duplicate submissions and retain dialog on failure", async (t) => {
+  let finish
+  let calls = 0
+  t.mock.method(globalThis, "fetch", () => {
+    calls++
+    return new Promise((resolve) => { finish = resolve })
+  })
+  const harness = actionHarness()
+  harness.render().openRenameDialog({ id: "project", name: "Original", isOwned: true })
+  const pending = harness.render().submitRename()
+  assert.equal(harness.render().isLoading, true)
+  await harness.render().submitRename()
+  harness.render().closeDialog()
+  assert.equal(harness.render().dialog, "rename")
+  assert.equal(calls, 1)
+  finish(Response.json({ error: "Forbidden" }, { status: 403 }))
+  await pending
+  assert.equal(harness.render().error, "Forbidden")
+  assert.equal(harness.render().isLoading, false)
+  assert.equal(harness.render().dialog, "rename")
+  assert.deepEqual(harness.navigation, [])
+})

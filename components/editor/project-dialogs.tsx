@@ -12,10 +12,10 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { useProjectDialogs } from "@/components/editor/use-project-dialogs"
+import { useProjectActions } from "@/hooks/use-project-actions"
 
 interface ProjectDialogsProps {
-  state: ReturnType<typeof useProjectDialogs>
+  state: ReturnType<typeof useProjectActions>
 }
 
 export function ProjectDialogs({ state }: ProjectDialogsProps) {
@@ -61,6 +61,7 @@ export function ProjectDialogs({ state }: ProjectDialogsProps) {
               <Input
                 ref={inputRef}
                 id="project-name"
+                disabled={state.isLoading}
                 value={state.projectName}
                 onChange={(event) => state.setProjectName(event.target.value)}
                 placeholder="e.g. Payments Platform"
@@ -70,10 +71,11 @@ export function ProjectDialogs({ state }: ProjectDialogsProps) {
             </div>
             {state.dialog === "create" && (
               <div className="rounded-xl border border-surface-border bg-elevated px-3 py-2 text-sm">
-                <span className="text-copy-muted">Slug preview </span>
-                <span className="font-mono text-brand">/{state.slugPreview || "project-name"}</span>
+                <span className="text-copy-muted">Room ID preview </span>
+                <span className="font-mono text-brand">/{state.roomIdPreview || "project-name"}</span>
               </div>
             )}
+            {state.error && <p role="alert" className="text-sm text-error">{state.error}</p>}
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={state.closeDialog} className="text-copy-secondary">
                 Cancel
@@ -94,6 +96,7 @@ export function ProjectDialogs({ state }: ProjectDialogsProps) {
               Delete {state.activeProject?.name ?? "this project"}? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
+          {state.error && <p role="alert" className="text-sm text-error">{state.error}</p>}
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={state.closeDialog} className="text-copy-secondary">
               Cancel
