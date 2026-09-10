@@ -1,6 +1,6 @@
 "use client"
 
-import { Plus, X } from "lucide-react"
+import { MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -9,6 +9,17 @@ import { cn } from "cn"
 interface ProjectSidebarProps {
   isOpen: boolean
   onClose: () => void
+  projects: Project[]
+  onCreateProject: () => void
+  onRenameProject: (project: Project) => void
+  onDeleteProject: (project: Project) => void
+}
+
+export interface Project {
+  id: string
+  name: string
+  slug: string
+  isOwned: boolean
 }
 
 function EmptyProjectState() {
@@ -25,7 +36,65 @@ function EmptyProjectState() {
   )
 }
 
-export function ProjectSidebar({ isOpen, onClose }: ProjectSidebarProps) {
+function ProjectList({
+  projects,
+  onRenameProject,
+  onDeleteProject,
+}: Pick<ProjectSidebarProps, "projects" | "onRenameProject" | "onDeleteProject">) {
+  if (projects.length === 0) {
+    return <EmptyProjectState />
+  }
+
+  return (
+    <div className="space-y-2">
+      {projects.map((project) => (
+        <div
+          key={project.id}
+          className="group flex items-center justify-between gap-3 rounded-xl border border-surface-border bg-elevated px-3 py-2"
+        >
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-copy-primary">{project.name}</p>
+            <p className="truncate font-mono text-xs text-copy-muted">/{project.slug}</p>
+          </div>
+          {project.isOwned && (
+            <div className="flex shrink-0 items-center gap-1 opacity-100 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                aria-label={`Rename ${project.name}`}
+                onClick={() => onRenameProject(project)}
+                className="text-copy-muted hover:bg-subtle hover:text-copy-primary"
+              >
+                <Pencil />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                aria-label={`Delete ${project.name}`}
+                onClick={() => onDeleteProject(project)}
+                className="text-copy-muted hover:bg-subtle hover:text-error"
+              >
+                <Trash2 />
+              </Button>
+            </div>
+          )}
+          {!project.isOwned && <MoreHorizontal className="h-4 w-4 shrink-0 text-copy-faint" />}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+export function ProjectSidebar({
+  isOpen,
+  onClose,
+  projects,
+  onCreateProject,
+  onRenameProject,
+  onDeleteProject,
+}: ProjectSidebarProps) {
   return (
     <>
       <div
@@ -66,17 +135,29 @@ export function ProjectSidebar({ isOpen, onClose }: ProjectSidebarProps) {
               </TabsList>
 
               <TabsContent value="my-projects" className="mt-4">
-                <EmptyProjectState />
+                <ProjectList
+                  projects={projects.filter((project) => project.isOwned)}
+                  onRenameProject={onRenameProject}
+                  onDeleteProject={onDeleteProject}
+                />
               </TabsContent>
 
               <TabsContent value="shared" className="mt-4">
-                <EmptyProjectState />
+                <ProjectList
+                  projects={projects.filter((project) => !project.isOwned)}
+                  onRenameProject={onRenameProject}
+                  onDeleteProject={onDeleteProject}
+                />
               </TabsContent>
             </Tabs>
           </div>
 
           <div className="border-t border-surface-border p-4">
-            <Button type="button" className="w-full justify-center gap-2 bg-brand text-background hover:bg-brand/90">
+            <Button
+              type="button"
+              onClick={onCreateProject}
+              className="w-full justify-center gap-2 bg-brand text-background hover:bg-brand/90"
+            >
               <Plus className="h-4 w-4" />
               New Project
             </Button>

@@ -4,11 +4,11 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Phase
 
-- Authentication foundation complete
+- Project dialogs and editor home complete
 
 ## Current Goal
 
-- Wire Clerk authentication into the app with protected routes, auth pages, redirects, and the editor user menu.
+- Build the project workspace foundation with mock project management and editor navigation.
 
 ## Completed
 
@@ -27,6 +27,10 @@ Update this file whenever the current phase, active feature, or implementation s
 - Added responsive sign-in and sign-up pages with compact product context on large screens and form-only layouts on small screens.
 - Updated `/` to redirect authenticated users to `/editor` and unauthenticated users to the configured sign-in path.
 - Added Clerk's built-in `UserButton` to the editor navbar and created the protected `/editor` destination.
+- Added the `/editor` project home with the specified empty-state copy and `New Project` action.
+- Added mock owned and shared projects to the sidebar with owner-only rename and delete actions.
+- Added a centralized project dialogs hook with create, rename, delete, and loading state.
+- Added create, rename, and delete dialogs with live slug preview, rename autofocus, Enter submit, and destructive confirmation.
 
 ## In Progress
 
@@ -34,7 +38,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Next Up
 
-- Move to the next feature unit after the authentication foundation is reviewed.
+- Move to the next feature unit after the project dialog foundation is reviewed.
 
 ## Open Questions
 
@@ -49,3 +53,4 @@ Update this file whenever the current phase, active feature, or implementation s
 - Read the feature spec and required context files before implementation. shadcn generated foundation components should remain unmodified.
 - `next build` with default Turbopack hit an environment port-binding panic while processing CSS; `next build --webpack` completed successfully.
 - Auth routes use Clerk's path-based catch-all pages so the built-in flows retain their nested callback routes.
+- Project management is intentionally mock-only; no API or persistence was added per the feature spec.
