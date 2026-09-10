@@ -4,11 +4,11 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Phase
 
-- Prisma data layer and project schema complete
+- Backend project APIs complete (feature 06).
 
 ## Current Goal
 
-- Add the relational project metadata layer, Prisma client singleton, and database migration for project ownership and collaboration.
+- Implement feature 06 project APIs without wiring the UI.
 
 ## Completed
 
@@ -35,6 +35,12 @@ Update this file whenever the current phase, active feature, or implementation s
 - Added a cached `lib/prisma.ts` singleton that branches on `DATABASE_URL` for direct Postgres versus Prisma Accelerate.
 - Validated the Prisma schema and client generation against the installed Prisma v7 dependency set.
 - Initialized the first migration for the project model layer and confirmed the app builds with the schema in place.
+- Added GET/POST `/api/projects` and PATCH/DELETE `/api/projects/[projectId]`.
+- Scoped listing to the authenticated owner's projects; creation uses the Clerk user ID and Prisma's existing cuid default, with `Untitled Project` when the name is missing.
+- Enforced JSON `401` responses in the proxy and handlers, and `403` for non-owner rename/delete requests.
+- Added name/body validation (`400`) and missing-project responses (`404`). List returns `{ projects }`, create/rename return `{ project }` (201/200), and delete returns 204.
+- Added seven passing API/proxy regression tests with mocked Clerk and Prisma dependencies, covering authorization, owner isolation, defaults, validation, and successful mutations.
+- Verified lint (one existing skill-template warning) and production compilation/TypeScript with `npm run build -- --webpack`.
 
 ## In Progress
 
@@ -42,7 +48,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Next Up
 
-- Move to the next feature unit after the Prisma foundation is reviewed.
+- Wire the editor UI in a separate feature unit after backend verification.
 
 ## Open Questions
 
@@ -53,6 +59,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 - Prisma stores relational project metadata and collaborator records in PostgreSQL, while canvas and spec artifacts remain outside the database as future blob-backed files.
 - The project database layer uses a single cached Prisma client instance for hot reload safety in development and a direct Postgres adapter when `DATABASE_URL` is not Prisma Accelerate-based.
+- Project listing in feature 06 is owner-scoped; rename/delete are owner-only. Client-supplied IDs and ownership fields are never used for creation or renaming.
 
 ## Session Notes
 
@@ -61,3 +68,5 @@ Update this file whenever the current phase, active feature, or implementation s
 - Auth routes use Clerk's path-based catch-all pages so the built-in flows retain their nested callback routes.
 - Project management is intentionally mock-only; no API or persistence was added per the feature spec.
 - Prisma CLI and client versions were aligned to match the installed dependency stack; the v8 config API is incompatible with this repo’s actual package versions.
+- Feature 06 leaves the UI mock-backed. Run API regression checks with `node --test tests/project-api.test.mjs`; these do not exercise a live Clerk session or database.
+- Feature 06: plain `npm run build` first failed fetching Google Fonts; the approved network retry encountered the existing Turbopack port-binding panic. The webpack production build passed without changing the build script.
