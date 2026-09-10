@@ -4,11 +4,11 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Phase
 
-- Project dialogs and editor home complete
+- Prisma data layer and project schema complete
 
 ## Current Goal
 
-- Build the project workspace foundation with mock project management and editor navigation.
+- Add the relational project metadata layer, Prisma client singleton, and database migration for project ownership and collaboration.
 
 ## Completed
 
@@ -31,6 +31,10 @@ Update this file whenever the current phase, active feature, or implementation s
 - Added mock owned and shared projects to the sidebar with owner-only rename and delete actions.
 - Added a centralized project dialogs hook with create, rename, delete, and loading state.
 - Added create, rename, and delete dialogs with live slug preview, rename autofocus, Enter submit, and destructive confirmation.
+- Added Prisma `Project` and `ProjectCollaborator` models with owner, lifecycle, and collaboration indexes.
+- Added a cached `lib/prisma.ts` singleton that branches on `DATABASE_URL` for direct Postgres versus Prisma Accelerate.
+- Validated the Prisma schema and client generation against the installed Prisma v7 dependency set.
+- Initialized the first migration for the project model layer and confirmed the app builds with the schema in place.
 
 ## In Progress
 
@@ -38,15 +42,17 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Next Up
 
-- Move to the next feature unit after the project dialog foundation is reviewed.
+- Move to the next feature unit after the Prisma foundation is reviewed.
 
 ## Open Questions
 
 - The existing environment did not define sign-in/sign-up URL variables, so the standard Clerk variables are read with `/sign-in` and `/sign-up` fallbacks.
+- The repo was using a Prisma v8 preview CLI while the installed client/adapter stack is v7, so the schema config and migration flow were aligned to the production dependency version.
 
 ## Architecture Decisions
 
-- Add decisions that affect the system design or data model.
+- Prisma stores relational project metadata and collaborator records in PostgreSQL, while canvas and spec artifacts remain outside the database as future blob-backed files.
+- The project database layer uses a single cached Prisma client instance for hot reload safety in development and a direct Postgres adapter when `DATABASE_URL` is not Prisma Accelerate-based.
 
 ## Session Notes
 
@@ -54,3 +60,4 @@ Update this file whenever the current phase, active feature, or implementation s
 - `next build` with default Turbopack hit an environment port-binding panic while processing CSS; `next build --webpack` completed successfully.
 - Auth routes use Clerk's path-based catch-all pages so the built-in flows retain their nested callback routes.
 - Project management is intentionally mock-only; no API or persistence was added per the feature spec.
+- Prisma CLI and client versions were aligned to match the installed dependency stack; the v8 config API is incompatible with this repo’s actual package versions.
