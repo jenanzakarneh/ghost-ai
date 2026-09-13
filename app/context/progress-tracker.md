@@ -4,11 +4,11 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Phase
 
-- Editor home API integration implemented (feature 07); automated checks complete.
+- Share dialog implemented (feature 09); automated validation complete with the existing default-build environment limitation.
 
 ## Current Goal
 
-- Feature 07 implemented; live authenticated verification remains.
+- Verify sharing against live Clerk and PostgreSQL.
 
 ## Completed
 
@@ -55,7 +55,8 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Next Up
 
-- Verify the signed-in flow against live Clerk and PostgreSQL, then proceed to the next canvas feature spec.
+- Verify owner invite/remove, collaborator read-only access, Clerk profiles, and clipboard feedback in a signed-in browser.
+- Investigate the sidebar navigation issue recorded in `current-issues.md`.
 
 ## Open Questions
 
@@ -85,3 +86,32 @@ Update this file whenever the current phase, active feature, or implementation s
 - Prisma CLI and client versions were aligned to match the installed dependency stack; the v8 config API is incompatible with this repo’s actual package versions.
 - Feature 07 replaces the mock-backed UI. Run regression checks with `node --test tests/project-api.test.mjs`; these do not exercise a live Clerk session or database.
 - Feature 06: plain `npm run build` first failed fetching Google Fonts; the approved network retry encountered the existing Turbopack port-binding panic. The webpack production build passed without changing the build script.
+
+## Feature 08 Implementation
+
+- Added server identity and project access helpers, preserving verified-email collaborator access and exposing the primary email.
+- Renamed the workspace route segment to `[roomId]`; anonymous users redirect to sign-in, and missing/unauthorized projects render the shared AccessDenied view.
+- Added the project name, disabled share placeholder, AI sidebar toggle and placeholder, full-viewport canvas placeholder, and current-room sidebar highlighting (including the shared tab).
+- No canvas, Liveblocks, AI chat, or sharing behavior added.
+
+## Feature 08 Validation
+
+- `node --test tests/project-api.test.mjs`: all 15 tests pass, including identity filtering, scoped access queries, anonymous redirects, denial rendering, and authorized workspace context.
+- `npm run lint`: no errors; one existing Clerk skill-template warning.
+- `npm run build -- --webpack`: passed compilation, TypeScript, and page generation for `/editor/[roomId]`. Stale generated development route types were moved to a temporary backup after the route segment rename.
+- Live browser verification with Clerk and PostgreSQL was not performed.
+
+## Feature 09 Implementation
+
+- Added collaborator list/invite/remove API with server-enforced membership and owner-only mutations, email validation, normalization, and duplicate handling.
+- Added Clerk name/avatar enrichment with email-only fallback.
+- Enabled navbar Share dialog: owner invites/removals and temporary Copied! feedback; collaborators receive a read-only list.
+- Invitation grants database access; no email delivery or local user table added.
+
+## Feature 09 Validation
+
+- `node --test tests/project-api.test.mjs`: 19 passing tests, covering sharing authorization, normalized invitations, invalid/duplicate emails, scoped removal, Clerk fallback, and client permission/mutation state.
+- `npm run lint`: no errors; one existing Clerk skill-template warning.
+- `npm run build -- --webpack`: passed production compilation, TypeScript, and page generation.
+- `npm run build`: font network failure in sandbox; network-enabled retry hit the existing Turbopack CSS process/port-binding restriction. Build script remains unchanged.
+- Live Clerk/PostgreSQL and browser clipboard verification was not performed.

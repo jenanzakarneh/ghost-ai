@@ -5,7 +5,7 @@ import ts from "typescript"
 
 function load(file, dependencies = {}) {
   const source = ts.transpileModule(fs.readFileSync(file, "utf8"), {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+    compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText
   const loadedModule = { exports: {} }
   new Function("require", "module", "exports", source)(
@@ -184,7 +184,7 @@ function actionHarness(activeId) {
     },
     "next/navigation": { useRouter: () => Object.fromEntries(["push", "replace", "refresh"].map((method) => [method, (...args) => navigation.push([method, ...args])])) },
   })
-  return { navigation, render: () => { cursor = 0; return useProjectActions(activeId) } }
+  return { navigation, render: function useRender() { cursor = 0; return useProjectActions(activeId) } }
 }
 
 test("project actions submit previewed ID, navigate, refresh, and redirect active deletion", async (t) => {
@@ -237,4 +237,184 @@ test("project actions prevent duplicate submissions and retain dialog on failure
   assert.equal(harness.render().isLoading, false)
   assert.equal(harness.render().dialog, "rename")
   assert.deepEqual(harness.navigation, [])
+})
+
+
+test("workspace identity excludes unverified emails and skips profile lookup for anonymous users", async () => {
+  for (const userId of [null, "owner"]) {
+    let profileReads = 0
+    const { getProjectIdentity } = load("lib/project-access.ts", {
+      "@clerk/nextjs/server": {
+        auth: async () => ({ userId }),
+        currentUser: async () => {
+          profileReads++
+          return {
+            primaryEmailAddress: { emailAddress: "primary@example.com" },
+            emailAddresses: [
+              { emailAddress: "primary@example.com", verification: { status: "verified" } },
+              { emailAddress: "unverified@example.com", verification: { status: "unverified" } },
+            ],
+          }
+        },
+      },
+      "@/lib/prisma": {},
+    })
+    assert.deepEqual(await getProjectIdentity(), userId ? {
+      userId, primaryEmail: "primary@example.com", verifiedEmails: ["primary@example.com"],
+    } : null)
+    assert.equal(profileReads, userId ? 1 : 0)
+  }
+})
+
+test("workspace access query scopes the requested room to owner or verified collaborators", async () => {
+  const identity = { userId: "owner", primaryEmail: null, verifiedEmails: ["member@example.com"] }
+  for (const project of [null, { id: "room", name: "Room", ownerId: "owner" }, { id: "room", name: "Room", ownerId: "other" }]) {
+    const { getAccessibleProject } = load("lib/project-access.ts", {
+      "@clerk/nextjs/server": {},
+      "@/lib/prisma": { prisma: { project: { findFirst: async ({ where }) => {
+        assert.deepEqual(where, {
+          id: "room", OR: [
+            { ownerId: "owner" },
+            { collaborators: { some: { email: { in: ["member@example.com"], mode: "insensitive" } } } },
+          ],
+        })
+        return project
+      } } } },
+    })
+    assert.deepEqual(await getAccessibleProject("room", identity), project ? {
+      id: "room", name: "Room", isOwned: project.ownerId === "owner",
+    } : null)
+  }
+})
+
+test("workspace redirects anonymous visitors and denies unavailable projects before loading sidebar data", async () => {
+  for (const state of ["anonymous", "missing", "unauthorized", "owner", "collaborator"]) {
+    const calls = []
+    const activeProject = ["owner", "collaborator"].includes(state) ? { id: "room", name: "Room", isOwned: state === "owner" } : null
+    const { default: Page } = load("app/editor/[roomId]/page.tsx", {
+      "react/jsx-runtime": { jsx: (type, props) => ({ type, props }) },
+      "next/navigation": { redirect: (path) => { throw new Error(`redirect:${path}`) } },
+      "@/components/editor/access-denied": { AccessDenied: "denied" },
+      "@/components/editor/editor-home": { EditorHome: "workspace" },
+      "@/lib/project-access": {
+        getProjectIdentity: async () => state === "anonymous" ? null : { userId: "user" },
+        getAccessibleProject: async (roomId) => { calls.push(roomId); return activeProject },
+      },
+      "@/lib/projects": { getEditorProjects: async () => { calls.push("list"); return { ownedProjects: [], sharedProjects: [] } } },
+    })
+    const render = () => Page({ params: Promise.resolve({ roomId: "room" }) })
+    if (state === "anonymous") {
+      await assert.rejects(render, /redirect:\/sign-in/)
+      assert.deepEqual(calls, [])
+    } else {
+      const result = await render()
+      assert.equal(result.type, activeProject ? "workspace" : "denied")
+      assert.deepEqual(calls, activeProject ? ["room", "list"] : ["room"])
+      if (activeProject) assert.deepEqual(result.props.activeProject, activeProject)
+    }
+  }
+})
+
+function sharingApi({ signedIn = true, access = true, owner = true, existing = false } = {}) {
+  const calls = []
+  const collaborators = load("lib/collaborators.ts", { "@clerk/nextjs/server": {} })
+  const api = load("app/api/projects/[projectId]/collaborators/route.ts", {
+    "@/lib/project-access": {
+      getProjectIdentity: async () => signedIn ? { userId: "owner", verifiedEmails: ["owner@example.com"] } : null,
+      getAccessibleProject: async () => access ? { id: "project", isOwned: owner } : null,
+    },
+    "@/lib/collaborators": { ...collaborators, enrichCollaborators: async (items) => items },
+    "@/lib/prisma": { prisma: { projectCollaborator: Object.fromEntries(
+      ["findMany", "findFirst", "create", "deleteMany"].map((method) => [method, async (args) => {
+        calls.push({ method, args })
+        if (method === "findMany") return [{ id: "member", email: "member@example.com" }]
+        if (method === "findFirst") return existing ? { id: "member" } : null
+        return { id: "member", ...args.data }
+      }]),
+    ) } },
+  })
+  return { ...api, calls }
+}
+
+test("sharing API denies anonymous and nonmembers, and makes collaborator access read-only", async () => {
+  for (const options of [{ signedIn: false }, { access: false }, { owner: false }]) {
+    const api = sharingApi(options)
+    for (const method of ["GET", "POST", "DELETE"]) {
+      const response = await api[method](request({ email: "member@example.com" }), context)
+      assert.equal(response.status, options.signedIn === false ? 401 : options.access === false || method !== "GET" ? 403 : 200)
+    }
+    assert.ok(api.calls.every(({ method }) => method === "findMany"))
+  }
+})
+
+test("sharing validates and normalizes invitations, rejects duplicates, and scopes removal", async () => {
+  for (const body of ["{", {}, { email: "invalid" }, { email: 123 }, { email: "owner@example.com" }]) {
+    const api = sharingApi()
+    assert.equal((await api.POST(request(body), context)).status, 400)
+    assert.equal(api.calls.length, 0)
+  }
+  assert.equal((await sharingApi({ existing: true }).POST(request({ email: "member@example.com" }), context)).status, 409)
+  const api = sharingApi()
+  assert.equal((await api.POST(request({ email: " MEMBER@Example.com " }), context)).status, 201)
+  assert.deepEqual(api.calls.find(({ method }) => method === "create").args.data, { projectId: "project", email: "member@example.com" })
+  assert.equal((await api.DELETE(request({ email: "MEMBER@example.com" }), context)).status, 204)
+  assert.deepEqual(api.calls.at(-1).args.where, { projectId: "project", email: { equals: "member@example.com", mode: "insensitive" } })
+})
+
+test("Clerk enrichment matches exact verified emails and falls back for missing users or service errors", async () => {
+  const items = [{ id: "one", email: "member@example.com" }, { id: "two", email: "unknown@example.com" }]
+  const { enrichCollaborators } = load("lib/collaborators.ts", {
+    "@clerk/nextjs/server": { clerkClient: async () => ({ users: { getUserList: async () => ({
+      totalCount: 1, data: [{ firstName: "Member", lastName: "Name", imageUrl: "https://example.com/avatar", emailAddresses: [
+        { emailAddress: "MEMBER@example.com", verification: { status: "verified" } },
+        { emailAddress: "unknown@example.com", verification: { status: "unverified" } },
+      ] }],
+    }) } }) },
+  })
+  assert.deepEqual(await enrichCollaborators(items), [
+    { ...items[0], displayName: "Member Name", imageUrl: "https://example.com/avatar" }, items[1],
+  ])
+  const fallback = load("lib/collaborators.ts", { "@clerk/nextjs/server": { clerkClient: async () => { throw new Error("unavailable") } } })
+  assert.deepEqual(await fallback.enrichCollaborators(items), items)
+})
+
+test("sharing dialog state loads member permissions and restricts mutations", async (t) => {
+  for (const owner of [false, true]) {
+    const values = []
+    let cursor = 0
+    let effect
+    const calls = []
+    const { useProjectSharing } = load("hooks/use-project-sharing.ts", {
+      react: {
+        useState: (initial) => {
+          const index = cursor++
+          if (!(index in values)) values[index] = initial
+          return [values[index], (value) => { values[index] = value }]
+        },
+        useRef: (initial) => {
+          const index = cursor++
+          if (!(index in values)) values[index] = { current: initial }
+          return values[index]
+        },
+        useCallback: (callback) => callback,
+        useEffect: (callback) => { effect = callback },
+      },
+    })
+    function useRender() { cursor = 0; return useProjectSharing("project") }
+    t.mock.method(globalThis, "fetch", async (_url, options) => {
+      calls.push(options?.method || "GET")
+      return options?.method ? new Response(null, { status: 204 }) : Response.json({ collaborators: [], isOwner: owner })
+    })
+    useRender()
+    const cleanup = effect()
+    await new Promise((resolve) => setImmediate(resolve))
+    assert.equal(useRender().isOwner, owner)
+    assert.equal(useRender().isLoading, false)
+    useRender().setEmail("member@example.com")
+    await useRender().invite()
+    await useRender().remove("member@example.com")
+    assert.deepEqual(calls, owner ? ["GET", "POST", "GET", "DELETE", "GET"] : ["GET"])
+    cleanup()
+    t.mock.restoreAll()
+  }
 })

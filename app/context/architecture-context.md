@@ -71,4 +71,9 @@
 
 - `lib/projects.ts` loads editor lists on the server using Clerk identity and verified emails for collaborator membership.
 - Feature 07 creation may provide a validated slug-and-suffix `roomId`, stored as the project ID and future Liveblocks room ID. Creation without it retains the cuid default. Ownership always comes from Clerk.
-- `/editor/[projectId]` checks owner or verified-email collaborator membership before rendering the workspace shell.
+- `/editor/[roomId]` uses `lib/project-access.ts` to resolve Clerk identity (user ID, primary email, and verified emails) and check owner or verified-email collaborator membership before rendering the workspace shell. Missing and unauthorized projects share the `AccessDenied` view; anonymous requests redirect to `/sign-in`. The room ID remains the project ID.
+
+## Project sharing
+
+- `/api/projects/[projectId]/collaborators` lists collaborators for members and accepts owner-only POST/DELETE mutations by email. Addresses are trimmed and lowercased; duplicate invitations return 409. Inviting grants access without sending email notifications.
+- Clerk Backend API enriches verified collaborator emails with names and avatars at read time. Missing profiles or unavailable enrichment fall back to email; no local user table is added.
