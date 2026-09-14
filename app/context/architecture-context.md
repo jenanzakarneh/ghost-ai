@@ -36,6 +36,7 @@
 - Only authenticated users can access protected routes.
 - Only the owner or a collaborator can mutate project resources.
 - Liveblocks room tokens are issued only after verifying project membership.
+- `POST /api/liveblocks-auth` accepts `{ room: projectId }`, checks the existing project access helper, ensures a private room with `getOrCreateRoom`, and issues access tokens scoped to that exact room. Session metadata includes Clerk display name/avatar and a deterministic cursor color. `lib/liveblocks.ts` lazily caches the server SDK client using `LIVEBLOCKS_SECRET_KEY`.
 
 ## Starter System Designs
 
@@ -72,6 +73,12 @@
 - `lib/projects.ts` loads editor lists on the server using Clerk identity and verified emails for collaborator membership.
 - Feature 07 creation may provide a validated slug-and-suffix `roomId`, stored as the project ID and future Liveblocks room ID. Creation without it retains the cuid default. Ownership always comes from Clerk.
 - `/editor/[roomId]` uses `lib/project-access.ts` to resolve Clerk identity (user ID, primary email, and verified emails) and check owner or verified-email collaborator membership before rendering the workspace shell. Missing and unauthorized projects share the `AccessDenied` view; anonymous requests redirect to `/sign-in`. The room ID remains the project ID.
+
+## Base collaborative canvas
+
+- The workspace page retains server-side membership checks. Its client shell mounts `CanvasRoom` only for an active project, keyed by project/room ID.
+- `CanvasRoom` owns the Liveblocks providers, initial presence, loading state, and connection error boundary. `BaseCanvas` uses `useLiveblocksFlow` with suspense and empty initial nodes/edges; Liveblocks manages the shared graph under its default `flow` storage key.
+- `types/canvas.ts` defines node data and the `canvasNode`/`canvasEdge` type identifiers. Feature 12 adds a basic rectangular `canvasNode` renderer and a shape panel. Validated shape drops use React Flow screen-to-flow coordinates and the Liveblocks node-change handler to add shared nodes. Shape-specific rendering and application snapshot persistence are deferred.
 
 ## Project sharing
 

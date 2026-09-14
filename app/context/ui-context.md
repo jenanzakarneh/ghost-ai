@@ -72,6 +72,8 @@ Smooth-step path with an arrow marker. Default edge color: `#f8fafc`. Stroke wid
 
 ### Node Shapes
 
+Feature 12 currently renders all node shapes as bordered rectangles with centered labels. The bottom-center pill toolbar shows six draggable shape icons; shape-specific node visuals remain a later unit.
+
 6 supported shapes, defined in `types/canvas.ts` as `NODE_SHAPES`. Complex shapes (diamond, hexagon, cylinder) are rendered as inline SVGs rather than CSS borders.
 
 - `rectangle` — default general-purpose node

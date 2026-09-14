@@ -109,7 +109,7 @@ test("proxy returns JSON 401 for project APIs and preserves page protection", as
   const auth = Object.assign(async () => ({ userId: null }), {
     protect: async () => { protectedPage = true },
   })
-  for (const path of ["/api/projects", "/api/projects/project"]) {
+  for (const path of ["/api/projects", "/api/projects/project", "/api/liveblocks-auth"]) {
     const response = await proxy(auth, new Request(`http://localhost${path}`))
     assert.equal(response.status, 401)
     assert.deepEqual(await response.json(), { error: "Unauthorized" })
@@ -417,4 +417,132 @@ test("sharing dialog state loads member permissions and restricts mutations", as
     cleanup()
     t.mock.restoreAll()
   }
+})
+
+function liveblocksHarness({ identity = { userId: 'owner' }, accessible = true, fail = false, profile = { id: 'owner', fullName: 'Owner Name', imageUrl: 'https://example.com/avatar' } } = {}) {
+  const calls = []
+  const session = {
+    FULL_ACCESS: ['room:write'],
+    allow: (...args) => calls.push(['allow', ...args]),
+    authorize: async () => { calls.push(['authorize']); return { body: '{"token":"test-token"}', status: 200 } },
+  }
+  const api = load('app/api/liveblocks-auth/route.ts', {
+    '@clerk/nextjs/server': { currentUser: async () => profile },
+    '@/lib/project-access': {
+      getProjectIdentity: async () => identity,
+      getAccessibleProject: async (room, user) => { calls.push(['access', room, user]); return accessible ? { id: room } : null },
+    },
+    '@/lib/cursor-color': load('lib/cursor-color.ts'),
+    '@/lib/liveblocks': { LiveblocksConfigurationError: class extends Error {}, getLiveblocks: () => ({
+      getOrCreateRoom: async (...args) => { calls.push(['room', ...args]); if (fail) throw new Error('private upstream detail') },
+      prepareSession: (...args) => { calls.push(['session', ...args]); return session },
+    }) },
+  })
+  return { ...api, calls }
+}
+
+test('Liveblocks rejects anonymous, invalid, wildcard, missing and inaccessible rooms before provisioning', async () => {
+  const anonymous = liveblocksHarness({ identity: null })
+  assert.equal((await anonymous.POST(request({ room: 'project' }))).status, 401)
+  assert.deepEqual(anonymous.calls, [])
+  for (const body of ['{', null, [], {}, { room: 1 }, { room: '' }, { room: '*' }, { room: 'project:*' }, { room: ' project' }]) {
+    const api = liveblocksHarness()
+    assert.equal((await api.POST(request(body))).status, 400)
+    assert.deepEqual(api.calls, [])
+  }
+  const denied = liveblocksHarness({ accessible: false })
+  assert.equal((await denied.POST(request({ room: 'project' }))).status, 403)
+  assert.deepEqual(denied.calls.map(([name]) => name), ['access'])
+})
+
+test('Liveblocks issues exact-room owner and collaborator sessions with trusted metadata', async () => {
+  for (const userId of ['owner', 'collaborator']) {
+    const api = liveblocksHarness({ identity: { userId }, profile: { id: userId, fullName: 'Display Name', imageUrl: 'avatar-url' } })
+    const response = await api.POST(request({ room: 'project', userId: 'attacker', userInfo: { name: 'Injected' } }))
+    assert.equal(response.status, 200)
+    assert.equal(response.headers.get('cache-control'), 'no-store')
+    assert.deepEqual(await response.json(), { token: 'test-token' })
+    assert.deepEqual(api.calls.map(([name]) => name), ['access', 'room', 'session', 'allow', 'authorize'])
+    assert.deepEqual(api.calls[1], ['room', 'project', { defaultAccesses: [] }])
+    assert.deepEqual(api.calls[2], ['session', userId, { userInfo: { name: 'Display Name', avatar: 'avatar-url', color: load('lib/cursor-color.ts').getCursorColor(userId) } }])
+    assert.deepEqual(api.calls[3], ['allow', 'project', ['room:write']])
+  }
+})
+
+test('Liveblocks fails closed on missing profiles and upstream failures', async () => {
+  const missing = liveblocksHarness({ profile: null })
+  assert.equal((await missing.POST(request({ room: 'project' }))).status, 401)
+  assert.equal(missing.calls.length, 1)
+  const failed = liveblocksHarness({ fail: true })
+  const response = await failed.POST(request({ room: 'project' }))
+  assert.equal(response.status, 503)
+  assert.deepEqual(await response.json(), { error: 'Unable to authorize collaboration' })
+  assert.deepEqual(failed.calls.map(([name]) => name), ['access', 'room'])
+})
+
+test('cursor colors are stable and remain in the palette for long and Unicode IDs', () => {
+  const { getCursorColor, CURSOR_COLORS } = load('lib/cursor-color.ts')
+  for (const id of ['', 'user_123', 'user_456', '👻', 'a'.repeat(10000)]) {
+    assert.equal(getCursorColor(id), getCursorColor(id))
+    assert.ok(CURSOR_COLORS.includes(getCursorColor(id)))
+  }
+  assert.notEqual(getCursorColor('user_123'), getCursorColor('user_456'))
+})
+
+test('Liveblocks client is lazy and cached across module reloads', (t) => {
+  const previous = globalThis.liveblocks
+  const previousSecret = process.env.LIVEBLOCKS_SECRET_KEY
+  delete globalThis.liveblocks
+  t.after(() => {
+    if (previousSecret === undefined) delete process.env.LIVEBLOCKS_SECRET_KEY
+    else process.env.LIVEBLOCKS_SECRET_KEY = previousSecret
+    if (previous === undefined) delete globalThis.liveblocks
+    else globalThis.liveblocks = previous
+  })
+  const creations = []
+  const dependencies = { '@liveblocks/node': { Liveblocks: class {
+    constructor(options) { creations.push(options) }
+  } } }
+  const first = load('lib/liveblocks.ts', dependencies)
+  assert.equal(creations.length, 0)
+  delete process.env.LIVEBLOCKS_SECRET_KEY
+  assert.throws(() => first.getLiveblocks(), /LIVEBLOCKS_SECRET_KEY is not defined/)
+  process.env.LIVEBLOCKS_SECRET_KEY = 'pk_test_mock'
+  assert.throws(() => first.getLiveblocks(), /secret key starting with sk_/)
+  assert.equal(creations.length, 0)
+  process.env.LIVEBLOCKS_SECRET_KEY = 'sk_test_mock'
+  assert.equal(first.getLiveblocks(), load('lib/liveblocks.ts', dependencies).getLiveblocks())
+  assert.deepEqual(creations, [{ secret: 'sk_test_mock' }])
+})
+
+test('shape drops accept all six payloads and reject malformed or unsupported data', () => {
+  const canvas = load('types/canvas.ts')
+  const { readShapeDrag, SHAPE_SIZES } = load('lib/shape-drag.ts', { '@/types/canvas': canvas })
+  for (const shape of canvas.NODE_SHAPES) {
+    const payload = { shape, ...SHAPE_SIZES[shape] }
+    assert.deepEqual(readShapeDrag(JSON.stringify(payload)), payload)
+  }
+  for (const raw of ['', '{', 'null', '[]', '{}', '{"shape":"triangle","width":100,"height":100}', '{"shape":"circle","width":-1,"height":120}']) {
+    assert.equal(readShapeDrag(raw), null)
+  }
+  assert.ok(SHAPE_SIZES.rectangle.width > SHAPE_SIZES.rectangle.height)
+  assert.equal(SHAPE_SIZES.circle.width, SHAPE_SIZES.circle.height)
+  assert.ok(SHAPE_SIZES.diamond.height > SHAPE_SIZES.rectangle.height)
+})
+
+test('shape nodes retain drop coordinates, dimensions and defaults with unique same-timestamp IDs', (t) => {
+  t.mock.method(Date, 'now', () => 123456)
+  const canvas = load('types/canvas.ts')
+  const { createShapeNode, SHAPE_SIZES } = load('lib/shape-drag.ts', { '@/types/canvas': canvas })
+  const payload = { shape: 'diamond', ...SHAPE_SIZES.diamond }
+  const position = { x: -50, y: 125 }
+  const first = createShapeNode(payload, position)
+  const second = createShapeNode(payload, position)
+  assert.equal(first.type, 'canvasNode')
+  assert.deepEqual(first.position, position)
+  assert.equal(first.width, payload.width)
+  assert.equal(first.height, payload.height)
+  assert.deepEqual(first.data, { label: '', color: canvas.NODE_COLORS[0].color, shape: 'diamond' })
+  assert.match(first.id, /^diamond-123456-\d+$/)
+  assert.notEqual(first.id, second.id)
 })

@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { Plus } from "lucide-react"
+import { CanvasRoom } from "@/components/editor/canvas-room"
 import { EditorNavbar } from "@/components/editor/editor-navbar"
 import { ShareDialog } from "@/components/editor/share-dialog"
 import { ProjectDialogs } from "@/components/editor/project-dialogs"
@@ -39,14 +40,11 @@ export function EditorHome({ ownedProjects, sharedProjects, activeProject }: Edi
         onRenameProject={projectDialogs.openRenameDialog}
         onDeleteProject={projectDialogs.openDeleteDialog}
       />
-      <section className="flex h-full items-center justify-center px-6 pt-16">
+      <section className="flex h-full items-center justify-center pt-16">
         {activeProject ? (
-          <div className="text-center">
-            <h2 className="text-xl font-semibold text-copy-primary">Your canvas awaits</h2>
-            <p className="mt-2 text-sm text-copy-muted">Your system design workspace will appear here.</p>
-          </div>
+          <CanvasRoom key={activeProject.id} roomId={activeProject.id} />
         ) : (
-          <div className="text-center">
+          <div className="px-6 text-center">
             <h1 className="text-2xl font-semibold text-copy-primary">Create a project or open an existing one</h1>
             <p className="mt-2 text-sm text-copy-muted">
               Start a new architecture workspace, or choose a project from the sidebar.

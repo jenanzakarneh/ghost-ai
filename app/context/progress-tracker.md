@@ -4,11 +4,11 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Phase
 
-- Share dialog implemented (feature 09); automated validation complete with the existing default-build environment limitation.
+- Shape panel (feature 12) implemented; TypeScript, targeted lint, 26 regression tests, and webpack production build pass.
 
 ## Current Goal
 
-- Verify sharing against live Clerk and PostgreSQL.
+- Verify shape dragging and shared node visibility in signed-in browser sessions.
 
 ## Completed
 
@@ -55,6 +55,10 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Next Up
 
+- Verify dragging all six shapes at different canvas zoom/pan positions and visibility in a second signed-in session.
+- Replace the public `pk_` value currently assigned to `LIVEBLOCKS_SECRET_KEY` with the project's actual `sk_` secret key locally, then restart the dev server and verify canvas authentication.
+- Verify feature 11 loading/error states, minimap/background, and room isolation in a signed-in browser with live services.
+- Configure server-only `LIVEBLOCKS_SECRET_KEY` and verify feature 10 with owner, collaborator, and denied-user sessions against live services.
 - Verify owner invite/remove, collaborator read-only access, Clerk profiles, and clipboard feedback in a signed-in browser.
 - Investigate the sidebar navigation issue recorded in `current-issues.md`.
 
@@ -115,3 +119,63 @@ Update this file whenever the current phase, active feature, or implementation s
 - `npm run build -- --webpack`: passed production compilation, TypeScript, and page generation.
 - `npm run build`: font network failure in sandbox; network-enabled retry hit the existing Turbopack CSS process/port-binding restriction. Build script remains unchanged.
 - Live Clerk/PostgreSQL and browser clipboard verification was not performed.
+
+## Feature 10 Implementation
+
+- Defined nullable cursor coordinates, `isThinking`, and user ID/name/avatar/color metadata in the root Liveblocks configuration.
+- Added a lazy, globally cached Liveblocks Node client and deterministic cursor colors from the documented canvas palette.
+- Added the missing `@liveblocks/node` dependency at version 3.24.1 to match the installed Liveblocks packages.
+- Added `POST /api/liveblocks-auth` with Clerk identity, validated room input, existing project membership checks, private get-or-create rooms, and exact-room full-access sessions with server-derived metadata.
+- Anonymous API requests return JSON 401; invalid room input returns 400; inaccessible or missing projects return 403. Provisioning failures return a generic 503 without issuing a token.
+- Token responses use `Cache-Control: no-store`. Runtime configuration requires `LIVEBLOCKS_SECRET_KEY`; it is not required to instantiate the client during builds.
+- Canvas providers, presence rendering, and graph storage remain future feature work.
+
+## Feature 10 Validation
+
+- `node --test tests/project-api.test.mjs`: 24 passing tests, including auth/proxy rejection, owner/collaborator room scope, trusted metadata, upstream failures, stable colors, and lazy client caching across module reloads.
+- `npx tsc --noEmit` and targeted ESLint on the implementation files pass.
+- `npm run build -- --webpack`: passed compilation, TypeScript, and page generation, including `/api/liveblocks-auth`.
+- `npm run build`: the existing Turbopack CSS process/port-binding restriction persists, including an elevated retry. Build script remains unchanged.
+- `npm run lint`: six pre-existing hook-rule errors in the feature 09 sharing test harness at lines 408–415, plus the existing Clerk skill-template warning. New implementation files pass lint.
+- Live Clerk/PostgreSQL/Liveblocks token issuance was not exercised; tests mock external services.
+
+## Feature 11 Implementation
+
+- Replaced the active workspace placeholder with a full-size client canvas while preserving the server workspace page and membership checks.
+- Added `CanvasRoom` with `/api/liveblocks-auth`, the current project room ID, initial `cursor: null` and `isThinking: false`, and a simple `ClientSideSuspense` loading state.
+- Added an error boundary and connection listeners outside Suspense so authentication/room errors and failed reconnections show an accessible fallback.
+- Added `BaseCanvas` using suspense-enabled `useLiveblocksFlow`, empty initial nodes/edges, and all synchronized change/connect/delete handlers.
+- Enabled loose connections, `fitView`, a MiniMap, and a dot background using the existing dark-theme tokens. Imported React Flow base styles.
+- Added shared `CanvasNodeData`, `CanvasNode` (`canvasNode`), and `CanvasEdge` (`canvasEdge`) types plus the documented shape/color palettes.
+- No controls, custom node/edge renderers, application persistence, or AI behavior added.
+
+## Feature 11 Validation
+
+- `npx tsc --noEmit`: passed.
+- Targeted ESLint on all four changed/new implementation files: passed.
+- `node --test tests/project-api.test.mjs`: all 24 existing regression tests pass; these cover access/auth infrastructure, not browser canvas synchronization.
+- `npm run build -- --webpack`: passed production compilation, TypeScript, and page generation.
+- `npm run build`: blocked by the existing Turbopack CSS process/port-binding restriction. The build script remains unchanged.
+- Live browser collaboration and connection-fallback behavior were not exercised against external services.
+
+## Liveblocks configuration issue
+
+- Reproduced the reported auth failure locally: the configured Liveblocks value is a public key, rejected by the Node SDK before network access.
+- Added explicit missing/public-key validation and a safe server-only diagnostic. Actual secret-key replacement remains pending user configuration.
+- Updated `.env.local` database SSL mode to `verify-full`; confirmed connection-string parsing retains certificate verification without the reported alias warning. No credentials were printed.
+
+## Feature 12 Implementation
+
+- Added a floating bottom-center pill panel with draggable rectangle, diamond, circle, pill, cylinder, and hexagon icon buttons.
+- Drag payloads include shape, width, and height. Defaults: rectangle 180×100, diamond 180×180, circle 120×120, pill 180×80, cylinder 140×160, hexagon 160×140.
+- Canvas wrapper accepts recognized drag types and validates payloads. Drops convert screen coordinates with React Flow and add nodes through the Liveblocks-synced node-change handler.
+- New nodes use `canvasNode`, an empty label, the default node color, the dragged shape and dimensions, and IDs composed of shape, timestamp, and an incrementing counter.
+- Registered a basic custom renderer: all shapes appear as bordered rectangles with centered labels. No shape-specific rendering or new connection controls added.
+
+## Feature 12 Validation
+
+- `npm run build -- --webpack`: passed production compilation, TypeScript, and page generation.
+- TypeScript and targeted ESLint pass for the four implementation files.
+- All 26 regression tests pass, including shape payload validation, default dimensions, dropped-node data/coordinates, and same-timestamp ID uniqueness.
+- `npm run build` encounters the existing Turbopack CSS process/port-binding restriction.
+- Browser drag/drop and live multi-user synchronization were not exercised against external services.
