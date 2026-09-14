@@ -2,7 +2,9 @@
 
 import { useState } from "react"
 import { Plus } from "lucide-react"
+import { CanvasRoom } from "@/components/editor/canvas-room"
 import { EditorNavbar } from "@/components/editor/editor-navbar"
+import { ShareDialog } from "@/components/editor/share-dialog"
 import { ProjectDialogs } from "@/components/editor/project-dialogs"
 import { ProjectSidebar } from "@/components/editor/project-sidebar"
 import { useProjectActions } from "@/hooks/use-project-actions"
@@ -13,16 +15,23 @@ interface EditorHomeProps extends ProjectLists {
 }
 
 export function EditorHome({ ownedProjects, sharedProjects, activeProject }: EditorHomeProps) {
+  const [isShareOpen, setIsShareOpen] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [isAiSidebarOpen, setIsAiSidebarOpen] = useState(false)
   const projectDialogs = useProjectActions(activeProject?.id)
 
   return (
-    <main className="min-h-screen bg-base">
+    <main className="h-dvh overflow-hidden bg-base">
       <EditorNavbar
+        onShare={() => setIsShareOpen(true)}
+        projectName={activeProject?.name}
+        isAiSidebarOpen={isAiSidebarOpen}
+        onToggleAiSidebar={() => setIsAiSidebarOpen((isOpen) => !isOpen)}
         isSidebarOpen={isSidebarOpen}
         onToggleSidebar={() => setIsSidebarOpen((isOpen) => !isOpen)}
       />
       <ProjectSidebar
+        activeProjectId={activeProject?.id}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         ownedProjects={ownedProjects}
@@ -31,11 +40,11 @@ export function EditorHome({ ownedProjects, sharedProjects, activeProject }: Edi
         onRenameProject={projectDialogs.openRenameDialog}
         onDeleteProject={projectDialogs.openDeleteDialog}
       />
-      <section className="flex min-h-screen items-center justify-center px-6 pt-16">
+      <section className="flex h-full items-center justify-center pt-16">
         {activeProject ? (
-          <h1 className="text-2xl font-semibold text-copy-primary">{activeProject.name}</h1>
+          <CanvasRoom key={activeProject.id} roomId={activeProject.id} />
         ) : (
-          <div className="text-center">
+          <div className="px-6 text-center">
             <h1 className="text-2xl font-semibold text-copy-primary">Create a project or open an existing one</h1>
             <p className="mt-2 text-sm text-copy-muted">
               Start a new architecture workspace, or choose a project from the sidebar.
@@ -51,6 +60,14 @@ export function EditorHome({ ownedProjects, sharedProjects, activeProject }: Edi
           </div>
         )}
       </section>
+      {activeProject && isAiSidebarOpen && (
+        <aside id="ai-sidebar" aria-labelledby="ai-sidebar-title"
+          className="fixed right-4 top-20 bottom-4 z-20 flex w-80 max-w-[calc(100vw-2rem)] flex-col rounded-2xl border border-surface-border bg-surface/95 p-5 backdrop-blur-sm">
+          <h2 id="ai-sidebar-title" className="text-base font-semibold text-copy-primary">AI assistant</h2>
+          <p className="flex flex-1 items-center justify-center text-center text-sm text-copy-muted">AI chat is coming soon.</p>
+        </aside>
+      )}
+      {activeProject && isShareOpen && <ShareDialog project={activeProject} onClose={() => setIsShareOpen(false)} />}
       <ProjectDialogs state={projectDialogs} />
     </main>
   )

@@ -36,6 +36,7 @@
 - Only authenticated users can access protected routes.
 - Only the owner or a collaborator can mutate project resources.
 - Liveblocks room tokens are issued only after verifying project membership.
+- `POST /api/liveblocks-auth` accepts `{ room: projectId }`, checks the existing project access helper, ensures a private room with `getOrCreateRoom`, and issues access tokens scoped to that exact room. Session metadata includes Clerk display name/avatar and a deterministic cursor color. `lib/liveblocks.ts` lazily caches the server SDK client using `LIVEBLOCKS_SECRET_KEY`.
 
 ## Starter System Designs
 
@@ -71,4 +72,21 @@
 
 - `lib/projects.ts` loads editor lists on the server using Clerk identity and verified emails for collaborator membership.
 - Feature 07 creation may provide a validated slug-and-suffix `roomId`, stored as the project ID and future Liveblocks room ID. Creation without it retains the cuid default. Ownership always comes from Clerk.
-- `/editor/[projectId]` checks owner or verified-email collaborator membership before rendering the workspace shell.
+- `/editor/[roomId]` uses `lib/project-access.ts` to resolve Clerk identity (user ID, primary email, and verified emails) and check owner or verified-email collaborator membership before rendering the workspace shell. Missing and unauthorized projects share the `AccessDenied` view; anonymous requests redirect to `/sign-in`. The room ID remains the project ID.
+
+## Base collaborative canvas
+
+- The workspace page retains server-side membership checks. Its client shell mounts `CanvasRoom` only for an active project, keyed by project/room ID.
+- `CanvasRoom` owns the Liveblocks providers, initial presence, loading state, and connection error boundary. `BaseCanvas` uses `useLiveblocksFlow` with suspense and empty initial nodes/edges; Liveblocks manages the shared graph under its default `flow` storage key.
+- `types/canvas.ts` defines node data and the `canvasNode`/`canvasEdge` type identifiers. Features 12–13 add a shape panel and a shared shape visual for `canvasNode` rendering and native drag images. Validated shape drops use React Flow screen-to-flow coordinates and the Liveblocks node-change handler to add shared nodes. CSS renders rectangle, pill, and circle; scalable SVG renders diamond, hexagon, and cylinder. Native drag images use the same default dimensions as dropped nodes and require no shared preview state. Application snapshot persistence is deferred.
+
+- Feature 14 uses React Flow `NodeResizer` and `updateNodeData` to send dimensions and label updates through the existing controlled `onNodesChange` Liveblocks handler. Only editing visibility is local UI state; labels and dimensions remain in the shared graph.
+
+- Feature 15 updates `data.color` through the same `updateNodeData` flow. The paired text color is derived from `NODE_COLORS` during rendering, keeping the pair consistent without redundant stored text-color state or server requests.
+
+- Feature 16 registers `canvasEdge` (and the default edge fallback), with light arrowed connection defaults. Nodes expose four source handles under loose connection mode. Edge labels live in `data.label`; local input drafts commit through `updateEdgeData` and the existing Liveblocks edge-change handler.
+
+## Project sharing
+
+- `/api/projects/[projectId]/collaborators` lists collaborators for members and accepts owner-only POST/DELETE mutations by email. Addresses are trimmed and lowercased; duplicate invitations return 409. Inviting grants access without sending email notifications.
+- Clerk Backend API enriches verified collaborator emails with names and avatars at read time. Missing profiles or unavailable enrichment fall back to email; no local user table is added.

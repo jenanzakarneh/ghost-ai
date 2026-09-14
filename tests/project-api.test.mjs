@@ -5,7 +5,7 @@ import ts from "typescript"
 
 function load(file, dependencies = {}) {
   const source = ts.transpileModule(fs.readFileSync(file, "utf8"), {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+    compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText
   const loadedModule = { exports: {} }
   new Function("require", "module", "exports", source)(
@@ -109,7 +109,7 @@ test("proxy returns JSON 401 for project APIs and preserves page protection", as
   const auth = Object.assign(async () => ({ userId: null }), {
     protect: async () => { protectedPage = true },
   })
-  for (const path of ["/api/projects", "/api/projects/project"]) {
+  for (const path of ["/api/projects", "/api/projects/project", "/api/liveblocks-auth"]) {
     const response = await proxy(auth, new Request(`http://localhost${path}`))
     assert.equal(response.status, 401)
     assert.deepEqual(await response.json(), { error: "Unauthorized" })
@@ -184,7 +184,7 @@ function actionHarness(activeId) {
     },
     "next/navigation": { useRouter: () => Object.fromEntries(["push", "replace", "refresh"].map((method) => [method, (...args) => navigation.push([method, ...args])])) },
   })
-  return { navigation, render: () => { cursor = 0; return useProjectActions(activeId) } }
+  return { navigation, render: function useRender() { cursor = 0; return useProjectActions(activeId) } }
 }
 
 test("project actions submit previewed ID, navigate, refresh, and redirect active deletion", async (t) => {
@@ -237,4 +237,312 @@ test("project actions prevent duplicate submissions and retain dialog on failure
   assert.equal(harness.render().isLoading, false)
   assert.equal(harness.render().dialog, "rename")
   assert.deepEqual(harness.navigation, [])
+})
+
+
+test("workspace identity excludes unverified emails and skips profile lookup for anonymous users", async () => {
+  for (const userId of [null, "owner"]) {
+    let profileReads = 0
+    const { getProjectIdentity } = load("lib/project-access.ts", {
+      "@clerk/nextjs/server": {
+        auth: async () => ({ userId }),
+        currentUser: async () => {
+          profileReads++
+          return {
+            primaryEmailAddress: { emailAddress: "primary@example.com" },
+            emailAddresses: [
+              { emailAddress: "primary@example.com", verification: { status: "verified" } },
+              { emailAddress: "unverified@example.com", verification: { status: "unverified" } },
+            ],
+          }
+        },
+      },
+      "@/lib/prisma": {},
+    })
+    assert.deepEqual(await getProjectIdentity(), userId ? {
+      userId, primaryEmail: "primary@example.com", verifiedEmails: ["primary@example.com"],
+    } : null)
+    assert.equal(profileReads, userId ? 1 : 0)
+  }
+})
+
+test("workspace access query scopes the requested room to owner or verified collaborators", async () => {
+  const identity = { userId: "owner", primaryEmail: null, verifiedEmails: ["member@example.com"] }
+  for (const project of [null, { id: "room", name: "Room", ownerId: "owner" }, { id: "room", name: "Room", ownerId: "other" }]) {
+    const { getAccessibleProject } = load("lib/project-access.ts", {
+      "@clerk/nextjs/server": {},
+      "@/lib/prisma": { prisma: { project: { findFirst: async ({ where }) => {
+        assert.deepEqual(where, {
+          id: "room", OR: [
+            { ownerId: "owner" },
+            { collaborators: { some: { email: { in: ["member@example.com"], mode: "insensitive" } } } },
+          ],
+        })
+        return project
+      } } } },
+    })
+    assert.deepEqual(await getAccessibleProject("room", identity), project ? {
+      id: "room", name: "Room", isOwned: project.ownerId === "owner",
+    } : null)
+  }
+})
+
+test("workspace redirects anonymous visitors and denies unavailable projects before loading sidebar data", async () => {
+  for (const state of ["anonymous", "missing", "unauthorized", "owner", "collaborator"]) {
+    const calls = []
+    const activeProject = ["owner", "collaborator"].includes(state) ? { id: "room", name: "Room", isOwned: state === "owner" } : null
+    const { default: Page } = load("app/editor/[roomId]/page.tsx", {
+      "react/jsx-runtime": { jsx: (type, props) => ({ type, props }) },
+      "next/navigation": { redirect: (path) => { throw new Error(`redirect:${path}`) } },
+      "@/components/editor/access-denied": { AccessDenied: "denied" },
+      "@/components/editor/editor-home": { EditorHome: "workspace" },
+      "@/lib/project-access": {
+        getProjectIdentity: async () => state === "anonymous" ? null : { userId: "user" },
+        getAccessibleProject: async (roomId) => { calls.push(roomId); return activeProject },
+      },
+      "@/lib/projects": { getEditorProjects: async () => { calls.push("list"); return { ownedProjects: [], sharedProjects: [] } } },
+    })
+    const render = () => Page({ params: Promise.resolve({ roomId: "room" }) })
+    if (state === "anonymous") {
+      await assert.rejects(render, /redirect:\/sign-in/)
+      assert.deepEqual(calls, [])
+    } else {
+      const result = await render()
+      assert.equal(result.type, activeProject ? "workspace" : "denied")
+      assert.deepEqual(calls, activeProject ? ["room", "list"] : ["room"])
+      if (activeProject) assert.deepEqual(result.props.activeProject, activeProject)
+    }
+  }
+})
+
+function sharingApi({ signedIn = true, access = true, owner = true, existing = false } = {}) {
+  const calls = []
+  const collaborators = load("lib/collaborators.ts", { "@clerk/nextjs/server": {} })
+  const api = load("app/api/projects/[projectId]/collaborators/route.ts", {
+    "@/lib/project-access": {
+      getProjectIdentity: async () => signedIn ? { userId: "owner", verifiedEmails: ["owner@example.com"] } : null,
+      getAccessibleProject: async () => access ? { id: "project", isOwned: owner } : null,
+    },
+    "@/lib/collaborators": { ...collaborators, enrichCollaborators: async (items) => items },
+    "@/lib/prisma": { prisma: { projectCollaborator: Object.fromEntries(
+      ["findMany", "findFirst", "create", "deleteMany"].map((method) => [method, async (args) => {
+        calls.push({ method, args })
+        if (method === "findMany") return [{ id: "member", email: "member@example.com" }]
+        if (method === "findFirst") return existing ? { id: "member" } : null
+        return { id: "member", ...args.data }
+      }]),
+    ) } },
+  })
+  return { ...api, calls }
+}
+
+test("sharing API denies anonymous and nonmembers, and makes collaborator access read-only", async () => {
+  for (const options of [{ signedIn: false }, { access: false }, { owner: false }]) {
+    const api = sharingApi(options)
+    for (const method of ["GET", "POST", "DELETE"]) {
+      const response = await api[method](request({ email: "member@example.com" }), context)
+      assert.equal(response.status, options.signedIn === false ? 401 : options.access === false || method !== "GET" ? 403 : 200)
+    }
+    assert.ok(api.calls.every(({ method }) => method === "findMany"))
+  }
+})
+
+test("sharing validates and normalizes invitations, rejects duplicates, and scopes removal", async () => {
+  for (const body of ["{", {}, { email: "invalid" }, { email: 123 }, { email: "owner@example.com" }]) {
+    const api = sharingApi()
+    assert.equal((await api.POST(request(body), context)).status, 400)
+    assert.equal(api.calls.length, 0)
+  }
+  assert.equal((await sharingApi({ existing: true }).POST(request({ email: "member@example.com" }), context)).status, 409)
+  const api = sharingApi()
+  assert.equal((await api.POST(request({ email: " MEMBER@Example.com " }), context)).status, 201)
+  assert.deepEqual(api.calls.find(({ method }) => method === "create").args.data, { projectId: "project", email: "member@example.com" })
+  assert.equal((await api.DELETE(request({ email: "MEMBER@example.com" }), context)).status, 204)
+  assert.deepEqual(api.calls.at(-1).args.where, { projectId: "project", email: { equals: "member@example.com", mode: "insensitive" } })
+})
+
+test("Clerk enrichment matches exact verified emails and falls back for missing users or service errors", async () => {
+  const items = [{ id: "one", email: "member@example.com" }, { id: "two", email: "unknown@example.com" }]
+  const { enrichCollaborators } = load("lib/collaborators.ts", {
+    "@clerk/nextjs/server": { clerkClient: async () => ({ users: { getUserList: async () => ({
+      totalCount: 1, data: [{ firstName: "Member", lastName: "Name", imageUrl: "https://example.com/avatar", emailAddresses: [
+        { emailAddress: "MEMBER@example.com", verification: { status: "verified" } },
+        { emailAddress: "unknown@example.com", verification: { status: "unverified" } },
+      ] }],
+    }) } }) },
+  })
+  assert.deepEqual(await enrichCollaborators(items), [
+    { ...items[0], displayName: "Member Name", imageUrl: "https://example.com/avatar" }, items[1],
+  ])
+  const fallback = load("lib/collaborators.ts", { "@clerk/nextjs/server": { clerkClient: async () => { throw new Error("unavailable") } } })
+  assert.deepEqual(await fallback.enrichCollaborators(items), items)
+})
+
+test("sharing dialog state loads member permissions and restricts mutations", async (t) => {
+  for (const owner of [false, true]) {
+    const values = []
+    let cursor = 0
+    let effect
+    const calls = []
+    const { useProjectSharing } = load("hooks/use-project-sharing.ts", {
+      react: {
+        useState: (initial) => {
+          const index = cursor++
+          if (!(index in values)) values[index] = initial
+          return [values[index], (value) => { values[index] = value }]
+        },
+        useRef: (initial) => {
+          const index = cursor++
+          if (!(index in values)) values[index] = { current: initial }
+          return values[index]
+        },
+        useCallback: (callback) => callback,
+        useEffect: (callback) => { effect = callback },
+      },
+    })
+    function useRender() { cursor = 0; return useProjectSharing("project") }
+    t.mock.method(globalThis, "fetch", async (_url, options) => {
+      calls.push(options?.method || "GET")
+      return options?.method ? new Response(null, { status: 204 }) : Response.json({ collaborators: [], isOwner: owner })
+    })
+    useRender()
+    const cleanup = effect()
+    await new Promise((resolve) => setImmediate(resolve))
+    assert.equal(useRender().isOwner, owner)
+    assert.equal(useRender().isLoading, false)
+    useRender().setEmail("member@example.com")
+    await useRender().invite()
+    await useRender().remove("member@example.com")
+    assert.deepEqual(calls, owner ? ["GET", "POST", "GET", "DELETE", "GET"] : ["GET"])
+    cleanup()
+    t.mock.restoreAll()
+  }
+})
+
+function liveblocksHarness({ identity = { userId: 'owner' }, accessible = true, fail = false, profile = { id: 'owner', fullName: 'Owner Name', imageUrl: 'https://example.com/avatar' } } = {}) {
+  const calls = []
+  const session = {
+    FULL_ACCESS: ['room:write'],
+    allow: (...args) => calls.push(['allow', ...args]),
+    authorize: async () => { calls.push(['authorize']); return { body: '{"token":"test-token"}', status: 200 } },
+  }
+  const api = load('app/api/liveblocks-auth/route.ts', {
+    '@clerk/nextjs/server': { currentUser: async () => profile },
+    '@/lib/project-access': {
+      getProjectIdentity: async () => identity,
+      getAccessibleProject: async (room, user) => { calls.push(['access', room, user]); return accessible ? { id: room } : null },
+    },
+    '@/lib/cursor-color': load('lib/cursor-color.ts'),
+    '@/lib/liveblocks': { LiveblocksConfigurationError: class extends Error {}, getLiveblocks: () => ({
+      getOrCreateRoom: async (...args) => { calls.push(['room', ...args]); if (fail) throw new Error('private upstream detail') },
+      prepareSession: (...args) => { calls.push(['session', ...args]); return session },
+    }) },
+  })
+  return { ...api, calls }
+}
+
+test('Liveblocks rejects anonymous, invalid, wildcard, missing and inaccessible rooms before provisioning', async () => {
+  const anonymous = liveblocksHarness({ identity: null })
+  assert.equal((await anonymous.POST(request({ room: 'project' }))).status, 401)
+  assert.deepEqual(anonymous.calls, [])
+  for (const body of ['{', null, [], {}, { room: 1 }, { room: '' }, { room: '*' }, { room: 'project:*' }, { room: ' project' }]) {
+    const api = liveblocksHarness()
+    assert.equal((await api.POST(request(body))).status, 400)
+    assert.deepEqual(api.calls, [])
+  }
+  const denied = liveblocksHarness({ accessible: false })
+  assert.equal((await denied.POST(request({ room: 'project' }))).status, 403)
+  assert.deepEqual(denied.calls.map(([name]) => name), ['access'])
+})
+
+test('Liveblocks issues exact-room owner and collaborator sessions with trusted metadata', async () => {
+  for (const userId of ['owner', 'collaborator']) {
+    const api = liveblocksHarness({ identity: { userId }, profile: { id: userId, fullName: 'Display Name', imageUrl: 'avatar-url' } })
+    const response = await api.POST(request({ room: 'project', userId: 'attacker', userInfo: { name: 'Injected' } }))
+    assert.equal(response.status, 200)
+    assert.equal(response.headers.get('cache-control'), 'no-store')
+    assert.deepEqual(await response.json(), { token: 'test-token' })
+    assert.deepEqual(api.calls.map(([name]) => name), ['access', 'room', 'session', 'allow', 'authorize'])
+    assert.deepEqual(api.calls[1], ['room', 'project', { defaultAccesses: [] }])
+    assert.deepEqual(api.calls[2], ['session', userId, { userInfo: { name: 'Display Name', avatar: 'avatar-url', color: load('lib/cursor-color.ts').getCursorColor(userId) } }])
+    assert.deepEqual(api.calls[3], ['allow', 'project', ['room:write']])
+  }
+})
+
+test('Liveblocks fails closed on missing profiles and upstream failures', async () => {
+  const missing = liveblocksHarness({ profile: null })
+  assert.equal((await missing.POST(request({ room: 'project' }))).status, 401)
+  assert.equal(missing.calls.length, 1)
+  const failed = liveblocksHarness({ fail: true })
+  const response = await failed.POST(request({ room: 'project' }))
+  assert.equal(response.status, 503)
+  assert.deepEqual(await response.json(), { error: 'Unable to authorize collaboration' })
+  assert.deepEqual(failed.calls.map(([name]) => name), ['access', 'room'])
+})
+
+test('cursor colors are stable and remain in the palette for long and Unicode IDs', () => {
+  const { getCursorColor, CURSOR_COLORS } = load('lib/cursor-color.ts')
+  for (const id of ['', 'user_123', 'user_456', '👻', 'a'.repeat(10000)]) {
+    assert.equal(getCursorColor(id), getCursorColor(id))
+    assert.ok(CURSOR_COLORS.includes(getCursorColor(id)))
+  }
+  assert.notEqual(getCursorColor('user_123'), getCursorColor('user_456'))
+})
+
+test('Liveblocks client is lazy and cached across module reloads', (t) => {
+  const previous = globalThis.liveblocks
+  const previousSecret = process.env.LIVEBLOCKS_SECRET_KEY
+  delete globalThis.liveblocks
+  t.after(() => {
+    if (previousSecret === undefined) delete process.env.LIVEBLOCKS_SECRET_KEY
+    else process.env.LIVEBLOCKS_SECRET_KEY = previousSecret
+    if (previous === undefined) delete globalThis.liveblocks
+    else globalThis.liveblocks = previous
+  })
+  const creations = []
+  const dependencies = { '@liveblocks/node': { Liveblocks: class {
+    constructor(options) { creations.push(options) }
+  } } }
+  const first = load('lib/liveblocks.ts', dependencies)
+  assert.equal(creations.length, 0)
+  delete process.env.LIVEBLOCKS_SECRET_KEY
+  assert.throws(() => first.getLiveblocks(), /LIVEBLOCKS_SECRET_KEY is not defined/)
+  process.env.LIVEBLOCKS_SECRET_KEY = 'pk_test_mock'
+  assert.throws(() => first.getLiveblocks(), /secret key starting with sk_/)
+  assert.equal(creations.length, 0)
+  process.env.LIVEBLOCKS_SECRET_KEY = 'sk_test_mock'
+  assert.equal(first.getLiveblocks(), load('lib/liveblocks.ts', dependencies).getLiveblocks())
+  assert.deepEqual(creations, [{ secret: 'sk_test_mock' }])
+})
+
+test('shape drops accept all six payloads and reject malformed or unsupported data', () => {
+  const canvas = load('types/canvas.ts')
+  const { readShapeDrag, SHAPE_SIZES } = load('lib/shape-drag.ts', { '@/types/canvas': canvas })
+  for (const shape of canvas.NODE_SHAPES) {
+    const payload = { shape, ...SHAPE_SIZES[shape] }
+    assert.deepEqual(readShapeDrag(JSON.stringify(payload)), payload)
+  }
+  for (const raw of ['', '{', 'null', '[]', '{}', '{"shape":"triangle","width":100,"height":100}', '{"shape":"circle","width":-1,"height":120}']) {
+    assert.equal(readShapeDrag(raw), null)
+  }
+  assert.ok(SHAPE_SIZES.rectangle.width > SHAPE_SIZES.rectangle.height)
+  assert.equal(SHAPE_SIZES.circle.width, SHAPE_SIZES.circle.height)
+  assert.ok(SHAPE_SIZES.diamond.height > SHAPE_SIZES.rectangle.height)
+})
+
+test('shape nodes retain drop coordinates, dimensions and defaults with unique same-timestamp IDs', (t) => {
+  t.mock.method(Date, 'now', () => 123456)
+  const canvas = load('types/canvas.ts')
+  const { createShapeNode, SHAPE_SIZES } = load('lib/shape-drag.ts', { '@/types/canvas': canvas })
+  const payload = { shape: 'diamond', ...SHAPE_SIZES.diamond }
+  const position = { x: -50, y: 125 }
+  const first = createShapeNode(payload, position)
+  const second = createShapeNode(payload, position)
+  assert.equal(first.type, 'canvasNode')
+  assert.deepEqual(first.position, position)
+  assert.equal(first.width, payload.width)
+  assert.equal(first.height, payload.height)
+  assert.deepEqual(first.data, { label: '', color: canvas.NODE_COLORS[0].color, shape: 'diamond' })
+  assert.match(first.id, /^diamond-123456-\d+$/)
+  assert.notEqual(first.id, second.id)
 })

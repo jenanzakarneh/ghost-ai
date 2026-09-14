@@ -1,18 +1,26 @@
 "use client"
 
 import { UserButton } from "@clerk/nextjs"
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react"
+import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Share2 } from "lucide-react"
 import type { ComponentProps } from "react"
 
 import { Button } from "@/components/ui/button"
 import { cn } from "cn"
 
 interface EditorNavbarProps extends ComponentProps<"header"> {
+  onShare?: () => void
+  projectName?: string
+  isAiSidebarOpen?: boolean
+  onToggleAiSidebar?: () => void
   isSidebarOpen: boolean
   onToggleSidebar: () => void
 }
 
 export function EditorNavbar({
+  onShare,
+  projectName,
+  isAiSidebarOpen,
+  onToggleAiSidebar,
   isSidebarOpen,
   onToggleSidebar,
   className,
@@ -27,7 +35,7 @@ export function EditorNavbar({
       )}
     >
       <div className="flex h-full items-center justify-between px-4">
-        <div className="flex w-1/3 items-center">
+        <div className="flex shrink-0 items-center">
           <Button
             type="button"
             variant="ghost"
@@ -44,9 +52,24 @@ export function EditorNavbar({
           </Button>
         </div>
 
-        <div className="flex flex-1 items-center justify-center" />
+        <div className="min-w-0 flex-1 px-3 text-center">
+          {projectName && <h1 className="truncate text-sm font-semibold text-copy-primary">{projectName}</h1>}
+        </div>
 
-        <div className="flex w-1/3 items-center justify-end">
+        <div className="flex shrink-0 items-center justify-end gap-2">
+          {projectName && (
+            <>
+              <Button type="button" variant="ghost" onClick={onShare} aria-label="Share project">
+                <Share2 className="h-4 w-4" />
+                Share
+              </Button>
+              <Button type="button" variant="ghost" size="icon" onClick={onToggleAiSidebar}
+                aria-label={isAiSidebarOpen ? "Close AI sidebar" : "Open AI sidebar"}
+                aria-expanded={isAiSidebarOpen} aria-controls="ai-sidebar">
+                {isAiSidebarOpen ? <PanelRightClose className="h-5 w-5" /> : <PanelRightOpen className="h-5 w-5" />}
+              </Button>
+            </>
+          )}
           <UserButton />
         </div>
       </div>
