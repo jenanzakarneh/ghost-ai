@@ -10,7 +10,12 @@ import {
 } from "@liveblocks/react/suspense"
 import { BaseCanvas } from "@/components/editor/base-canvas"
 
-interface CanvasRoomProps {
+export interface CanvasTemplateControls {
+  templatesOpen: boolean
+  onTemplatesOpenChange: (open: boolean) => void
+}
+
+interface CanvasRoomProps extends CanvasTemplateControls {
   roomId: string
 }
 
@@ -43,7 +48,7 @@ class CanvasErrorBoundary extends Component<CanvasErrorBoundaryProps, CanvasErro
 }
 
 // Keep connection listeners mounted while the canvas is suspended on room storage.
-function CanvasConnection() {
+function CanvasConnection(props: CanvasTemplateControls) {
   const [failed, setFailed] = useState(false)
   useErrorListener((error) => {
     if (error.context.type === "ROOM_CONNECTION_ERROR") setFailed(true)
@@ -59,18 +64,18 @@ function CanvasConnection() {
         Loading canvas…
       </div>
     }>
-      <BaseCanvas />
+      <BaseCanvas {...props} />
     </ClientSideSuspense>
   )
 }
 
-export function CanvasRoom({ roomId }: CanvasRoomProps) {
+export function CanvasRoom({ roomId, ...props }: CanvasRoomProps) {
   return (
     <div className="h-full w-full" aria-label="System design canvas">
       <CanvasErrorBoundary key={roomId}>
         <LiveblocksProvider authEndpoint="/api/liveblocks-auth">
-          <RoomProvider id={roomId} initialPresence={{ cursor: null, isThinking: false }}>
-            <CanvasConnection />
+          <RoomProvider id={roomId} initialPresence={{ cursor: null, thinking: false }}>
+            <CanvasConnection {...props} />
           </RoomProvider>
         </LiveblocksProvider>
       </CanvasErrorBoundary>

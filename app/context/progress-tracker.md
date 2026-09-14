@@ -4,11 +4,11 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Phase
 
-- Canvas ergonomics (feature 17) implemented; targeted lint, 26 regression tests, and webpack production build (including TypeScript) pass. Default Turbopack build remains blocked by the environment port-binding restriction.
+- Presence avatars and cursors (feature 19) implemented; targeted lint, 26 regression tests, and webpack production build (including TypeScript) pass. Default Turbopack build remains blocked by the environment port-binding restriction.
 
 ## Current Goal
 
-- Verify feature 17 control placement, animated zoom, history availability, keyboard shortcuts, and editable-field isolation in signed-in browser sessions.
+- Verify feature 19 participant filtering, avatar overflow, and cursor synchronization in signed-in browser sessions. Feature 18 browser acceptance remains pending.
 
 ## Completed
 
@@ -267,3 +267,35 @@ Update this file whenever the current phase, active feature, or implementation s
 - Default `npm run build` has the previously reproduced Turbopack CSS worker port-binding restriction; build script unchanged.
 - Inspected the installed Liveblocks connection handler and explicitly merge edge defaults into new connections so custom type and arrow styling are shared.
 - Live browser checks for handle connections, hover/selection, label saving, gesture isolation, and multi-session synchronization remain pending.
+
+## Feature 18 Implementation
+
+- Added three typed predefined diagrams: microservices, CI/CD pipeline, and event-driven system using shared shapes, dimensions, and colors.
+- Added a navbar Templates button and scrollable dialog cards with names, descriptions, import buttons, and lightweight bounds-fitted previews using existing shape visuals.
+- Import clears edges and nodes before adding fresh template copies through the existing Liveblocks change handlers, batched as one shared update. Unique IDs keep repeated imports independent.
+- The local viewport fits the imported nodes after the shared graph renders. No custom templates, template saving, persistence, or renderer changes added.
+
+## Feature 18 Validation
+
+- `npx tsc --noEmit` and targeted ESLint on all six implementation files pass.
+- Template-data checks pass for all three graphs: unique node IDs, valid dimensions, shared palette colors, and existing source/target endpoints.
+- All 26 existing regression tests pass; these do not exercise the new browser import interactions.
+- `npm run build -- --webpack` passes production compilation, TypeScript, and page generation.
+- `npm run build` reproduces the existing Turbopack CSS worker port-binding restriction (`Operation not permitted`); build script unchanged.
+- Signed-in browser checks for modal previews, repeated replacement, viewport fitting, and multi-session synchronization remain pending.
+
+## Feature 19 Implementation
+
+- Added a canvas-only top-right participant panel, separate from the unchanged shared navbar and its actions.
+- Resolves the current user from Clerk; excludes their user ID from Liveblocks collaborator avatars and cursors, including other sessions of the same account.
+- Shows up to five overlapping, display-only 32px collaborator photos with initials fallback, subtle rings, and a +N overflow chip. Clerk UserButton uses matching dimensions; the divider appears only with collaborators.
+- React Flow mouse movement broadcasts unsnapped flow coordinates through existing Liveblocks presence; mouse leave clears the cursor. Colored pointers and matching name badges follow the receiving viewport's pan and zoom without intercepting canvas gestures.
+- Renamed shared `isThinking` to the specified `thinking` boolean and updated initial presence. Node/edge behavior is unchanged.
+
+## Feature 19 Validation
+
+- Targeted ESLint passes for all five implementation files.
+- All 26 existing regression tests pass; these do not exercise the new presence UI.
+- `npm run build -- --webpack` passes production compilation, TypeScript, and page generation.
+- `npm run build` remains blocked by the existing Turbopack CSS worker port-binding restriction (`Operation not permitted`), including an elevated retry. Build configuration is unchanged.
+- Signed-in multi-user browser checks remain pending: own-ID exclusion across sessions, zero/five/overflow collaborator states, Clerk profile controls, image fallback, and cursor alignment during pan/zoom and clearing on mouse leave.

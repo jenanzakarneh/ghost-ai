@@ -86,6 +86,8 @@
 
 - Feature 16 registers `canvasEdge` (and the default edge fallback), with light arrowed connection defaults. Nodes expose four source handles under loose connection mode. Edge labels live in `data.label`; local input drafts commit through `updateEdgeData` and the existing Liveblocks edge-change handler.
 
+- Feature 19 uses transient Liveblocks presence (`cursor` in React Flow coordinates and `thinking`) for canvas-only live cursors. Participant avatars use authenticated room metadata, excluding the active Clerk user ID; Clerk UserButton supplies the current user's profile controls. Cursor rendering follows the local viewport, and mouse leave clears presence. Presence does not enter shared graph storage or snapshots.
+
 ## Project sharing
 
 - `/api/projects/[projectId]/collaborators` lists collaborators for members and accepts owner-only POST/DELETE mutations by email. Addresses are trimmed and lowercased; duplicate invitations return 409. Inviting grants access without sending email notifications.

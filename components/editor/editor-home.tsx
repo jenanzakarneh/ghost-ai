@@ -15,6 +15,7 @@ interface EditorHomeProps extends ProjectLists {
 }
 
 export function EditorHome({ ownedProjects, sharedProjects, activeProject }: EditorHomeProps) {
+  const [isTemplatesOpen, setIsTemplatesOpen] = useState(false)
   const [isShareOpen, setIsShareOpen] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isAiSidebarOpen, setIsAiSidebarOpen] = useState(false)
@@ -23,6 +24,7 @@ export function EditorHome({ ownedProjects, sharedProjects, activeProject }: Edi
   return (
     <main className="h-dvh overflow-hidden bg-base">
       <EditorNavbar
+        onTemplates={() => setIsTemplatesOpen(true)}
         onShare={() => setIsShareOpen(true)}
         projectName={activeProject?.name}
         isAiSidebarOpen={isAiSidebarOpen}
@@ -42,7 +44,7 @@ export function EditorHome({ ownedProjects, sharedProjects, activeProject }: Edi
       />
       <section className="flex h-full items-center justify-center pt-16">
         {activeProject ? (
-          <CanvasRoom key={activeProject.id} roomId={activeProject.id} />
+          <CanvasRoom key={activeProject.id} roomId={activeProject.id} templatesOpen={isTemplatesOpen} onTemplatesOpenChange={setIsTemplatesOpen} />
         ) : (
           <div className="px-6 text-center">
             <h1 className="text-2xl font-semibold text-copy-primary">Create a project or open an existing one</h1>

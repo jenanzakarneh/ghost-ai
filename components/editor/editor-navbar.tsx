@@ -1,13 +1,14 @@
 "use client"
 
 import { UserButton } from "@clerk/nextjs"
-import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Share2 } from "lucide-react"
+import { LayoutTemplate, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Share2 } from "lucide-react"
 import type { ComponentProps } from "react"
 
 import { Button } from "@/components/ui/button"
 import { cn } from "cn"
 
 interface EditorNavbarProps extends ComponentProps<"header"> {
+  onTemplates?: () => void
   onShare?: () => void
   projectName?: string
   isAiSidebarOpen?: boolean
@@ -17,6 +18,7 @@ interface EditorNavbarProps extends ComponentProps<"header"> {
 }
 
 export function EditorNavbar({
+  onTemplates,
   onShare,
   projectName,
   isAiSidebarOpen,
@@ -59,6 +61,10 @@ export function EditorNavbar({
         <div className="flex shrink-0 items-center justify-end gap-2">
           {projectName && (
             <>
+              <Button type="button" variant="ghost" onClick={onTemplates} aria-label="Open starter templates">
+                <LayoutTemplate className="h-4 w-4" />
+                <span className="hidden sm:inline">Templates</span>
+              </Button>
               <Button type="button" variant="ghost" onClick={onShare} aria-label="Share project">
                 <Share2 className="h-4 w-4" />
                 Share
