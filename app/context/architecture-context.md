@@ -78,7 +78,13 @@
 
 - The workspace page retains server-side membership checks. Its client shell mounts `CanvasRoom` only for an active project, keyed by project/room ID.
 - `CanvasRoom` owns the Liveblocks providers, initial presence, loading state, and connection error boundary. `BaseCanvas` uses `useLiveblocksFlow` with suspense and empty initial nodes/edges; Liveblocks manages the shared graph under its default `flow` storage key.
-- `types/canvas.ts` defines node data and the `canvasNode`/`canvasEdge` type identifiers. Feature 12 adds a basic rectangular `canvasNode` renderer and a shape panel. Validated shape drops use React Flow screen-to-flow coordinates and the Liveblocks node-change handler to add shared nodes. Shape-specific rendering and application snapshot persistence are deferred.
+- `types/canvas.ts` defines node data and the `canvasNode`/`canvasEdge` type identifiers. Features 12–13 add a shape panel and a shared shape visual for `canvasNode` rendering and native drag images. Validated shape drops use React Flow screen-to-flow coordinates and the Liveblocks node-change handler to add shared nodes. CSS renders rectangle, pill, and circle; scalable SVG renders diamond, hexagon, and cylinder. Native drag images use the same default dimensions as dropped nodes and require no shared preview state. Application snapshot persistence is deferred.
+
+- Feature 14 uses React Flow `NodeResizer` and `updateNodeData` to send dimensions and label updates through the existing controlled `onNodesChange` Liveblocks handler. Only editing visibility is local UI state; labels and dimensions remain in the shared graph.
+
+- Feature 15 updates `data.color` through the same `updateNodeData` flow. The paired text color is derived from `NODE_COLORS` during rendering, keeping the pair consistent without redundant stored text-color state or server requests.
+
+- Feature 16 registers `canvasEdge` (and the default edge fallback), with light arrowed connection defaults. Nodes expose four source handles under loose connection mode. Edge labels live in `data.label`; local input drafts commit through `updateEdgeData` and the existing Liveblocks edge-change handler.
 
 ## Project sharing
 

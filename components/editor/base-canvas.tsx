@@ -4,11 +4,20 @@ import { useLiveblocksFlow } from "@liveblocks/react-flow"
 import { useRef, type DragEvent } from "react"
 import type { ReactFlowInstance } from "@xyflow/react"
 import { ShapePanel } from "@/components/editor/shape-panel"
+import { CanvasControls } from "@/components/editor/canvas-controls"
+import { CanvasEdgeRenderer } from "@/components/editor/canvas-edge"
 import { CanvasNodeRenderer } from "@/components/editor/canvas-node"
 import { createShapeNode, readShapeDrag, SHAPE_DRAG_TYPE } from "@/lib/shape-drag"
-import { Background, BackgroundVariant, ConnectionMode, MiniMap, ReactFlow } from "@xyflow/react"
+import { Background, BackgroundVariant, ConnectionMode, MarkerType, MiniMap, ReactFlow } from "@xyflow/react"
 import type { CanvasEdge, CanvasNode } from "@/types/canvas"
 import "@xyflow/react/dist/style.css"
+
+const edgeTypes = { canvasEdge: CanvasEdgeRenderer, default: CanvasEdgeRenderer }
+const defaultEdgeOptions = {
+  type: "canvasEdge",
+  markerEnd: { type: MarkerType.ArrowClosed, color: "var(--text-primary)" },
+  style: { stroke: "var(--text-primary)", strokeWidth: 1.5, strokeLinecap: "round" as const },
+}
 
 const nodeTypes = { canvasNode: CanvasNodeRenderer }
 
@@ -38,11 +47,16 @@ export function BaseCanvas() {
       <ReactFlow<CanvasNode, CanvasEdge>
         onInit={(instance) => { flow.current = instance }}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        defaultEdgeOptions={defaultEdgeOptions}
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
+        onConnect={(connection) => {
+          const edge = { ...defaultEdgeOptions, ...connection }
+          onConnect(edge)
+        }}
         onDelete={onDelete}
         connectionMode={ConnectionMode.Loose}
         colorMode="dark"
@@ -50,6 +64,7 @@ export function BaseCanvas() {
         fitView
       >
         <ShapePanel />
+        <CanvasControls />
         <MiniMap
           className="overflow-hidden rounded-xl border border-surface-border"
           bgColor="var(--bg-surface)"

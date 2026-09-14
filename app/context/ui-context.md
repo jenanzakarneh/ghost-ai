@@ -68,11 +68,11 @@ Default node color: `#1F1F1F` with `#EDEDED` text.
 
 ### Edge Style
 
-Smooth-step path with an arrow marker. Default edge color: `#f8fafc`. Stroke width is thin — edges are visually secondary to nodes.
+Right-angle smooth-step paths use the primary text token, rounded stroke ends, and arrowheads. Edges dim at rest and brighten on hover or selection, with a wider invisible interaction path. Midpoint labels appear as small pill badges; active unlabeled edges show “Double-click to label”. Double-click opens a growing input that saves on blur, Enter, or Escape.
 
 ### Node Shapes
 
-Feature 12 currently renders all node shapes as bordered rectangles with centered labels. The bottom-center pill toolbar shows six draggable shape icons; shape-specific node visuals remain a later unit.
+Nodes render their shape with centered labels, subtle resting borders, and brand-colored selected borders. The bottom-center pill toolbar shows six draggable shape icons with native ghost previews using the same visuals and default dimensions as dropped nodes.
 
 6 supported shapes, defined in `types/canvas.ts` as `NODE_SHAPES`. Complex shapes (diamond, hexagon, cylinder) are rendered as inline SVGs rather than CSS borders.
 
@@ -82,6 +82,14 @@ Feature 12 currently renders all node shapes as bordered rectangles with centere
 - `pill` — service / process
 - `cylinder` — database / storage
 - `hexagon` — external system / boundary
+
+### Node Color Toolbar
+
+Selected nodes show eight palette swatches in a compact floating toolbar 12px above the node. The active swatch has a ring and checkmark; hover adds a tight glow in the paired text color. Choosing a swatch updates the node fill and derived label color together.
+
+### Node Editing
+
+Selected nodes show subtle resize controls with an 80×60 minimum size. Empty labels display “Label” in the centered label area. Double-clicking that area opens an overlaid textarea; changes sync while typing, and blur or Escape closes editing without reverting changes.
 
 ### Connection Handles
 

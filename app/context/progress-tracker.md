@@ -4,11 +4,11 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Phase
 
-- Shape panel (feature 12) implemented; TypeScript, targeted lint, 26 regression tests, and webpack production build pass.
+- Canvas ergonomics (feature 17) implemented; targeted lint, 26 regression tests, and webpack production build (including TypeScript) pass. Default Turbopack build remains blocked by the environment port-binding restriction.
 
 ## Current Goal
 
-- Verify shape dragging and shared node visibility in signed-in browser sessions.
+- Verify feature 17 control placement, animated zoom, history availability, keyboard shortcuts, and editable-field isolation in signed-in browser sessions.
 
 ## Completed
 
@@ -52,6 +52,23 @@ Update this file whenever the current phase, active feature, or implementation s
 ## In Progress
 
 - None.
+
+## Feature 17 Implementation
+
+- Added a bottom-left pill control bar above the shape panel, with zoom out, fit view, zoom in, a thin divider, undo, and redo.
+- Zoom buttons and keyboard zoom use the existing React Flow instance with a 200ms animation; fit view uses the same duration.
+- Undo/redo use Liveblocks history hooks, with availability hooks disabling and dimming unavailable buttons.
+- Added `hooks/useKeyboardShortcuts.ts` with a window keydown listener and cleanup: `+`/`=` zoom in, `-` zoom out, Cmd/Ctrl+Z undo, Cmd/Ctrl+Shift+Z and Cmd/Ctrl+Y redo.
+- Shortcuts skip inputs, textareas, selects, contenteditable fields, textbox roles, composition, and already-handled events.
+- Shape panel, node/edge rendering, and collaborative state setup remain unchanged.
+
+## Feature 17 Validation
+
+- Targeted ESLint passes for the control bar, shortcut hook, and canvas integration.
+- All 26 existing regression tests pass; these do not exercise the new browser gestures.
+- `npm run build -- --webpack` passes production compilation, TypeScript, and page generation.
+- `npm run build` fails with the previously documented Turbopack CSS worker port-binding restriction (`Operation not permitted`), including an elevated retry. Build script remains unchanged.
+- Signed-in browser checks for control positioning, animated zoom, undo/redo, editable-field isolation, and live collaboration remain pending.
 
 ## Next Up
 
@@ -179,3 +196,74 @@ Update this file whenever the current phase, active feature, or implementation s
 - All 26 regression tests pass, including shape payload validation, default dimensions, dropped-node data/coordinates, and same-timestamp ID uniqueness.
 - `npm run build` encounters the existing Turbopack CSS process/port-binding restriction.
 - Browser drag/drop and live multi-user synchronization were not exercised against external services.
+
+## Feature 13 Implementation
+
+- Replaced the placeholder renderer with CSS rectangle, circle, and pill shapes and scalable SVG diamond, hexagon, and cylinder shapes.
+- Shared shape visuals preserve node colors, centered labels, subtle borders, and brighter selected borders. SVG strokes retain their width as nodes scale.
+- Shape panel uses native cursor-following ghost images at the existing default drop dimensions, automatically dismissed on drop or cancellation.
+- Existing node creation, drag payloads, panel layout, and collaborative state handlers remain intact.
+
+## Feature 13 Validation
+
+- `npx tsc --noEmit` and targeted ESLint on all three implementation files: passed.
+- `node --test tests/project-api.test.mjs`: all 26 regression tests pass, including existing drop payload and node creation checks.
+- `npm run build -- --webpack`: passed compilation, TypeScript, and page generation.
+- `npm run build`: blocked by the existing Turbopack CSS process/port-binding restriction; build script unchanged.
+- Browser visual checks, native drag preview behavior across browsers, and live collaboration verification remain pending.
+
+## Feature 13 Specification Review
+
+- Re-read the unchanged feature 13 specification and reviewed the existing implementation against each requirement; no additional implementation changes were needed.
+- CSS/SVG variants, size-scaled SVGs, selected borders, and shared native drag previews are implemented within the specified scope.
+- Retried `npm run build` with escalation: the same Turbopack CSS worker port-binding restriction persists (`Operation not permitted`). The successful webpack build and TypeScript validation above remain applicable.
+- Visual browser acceptance checks remain pending; feature 14 is outside this request.
+
+## Feature 14 Implementation
+
+- Added selected-only, dark-theme resize handles with minimum dimensions of 80×60.
+- Added centered empty-label placeholder (“Label”) and double-click textarea editing over the same label area, with matching typography and a hidden text mirror to preserve layout.
+- Labels update on each change through React Flow `updateNodeData`; resizing uses `NodeResizer`. Both reach the existing Liveblocks-backed `onNodesChange` flow.
+- Blur and Escape close editing while retaining the live edits. Textarea interactions use `nodrag`, `nopan`, `nowheel`, and propagation guards.
+- Shape visuals, shape panel, drag previews, and drop creation remain unchanged.
+
+## Feature 14 Validation
+
+- `npx tsc --noEmit` and targeted ESLint on both implementation files: passed.
+- `node --test tests/project-api.test.mjs`: all 26 existing regression tests pass; these do not exercise the new browser editing gestures.
+- `npm run build -- --webpack`: passed compilation, TypeScript, and page generation.
+- Default `npm run build` remains subject to the previously reproduced Turbopack CSS worker port-binding restriction, including the earlier escalated retry; the build script is unchanged.
+- Live browser resizing, double-click editing, focus/blur/Escape behavior, gesture isolation, and multi-session synchronization remain pending.
+
+## Feature 15 Implementation
+
+- Added a selected-only floating toolbar 12px above each node with all eight existing `NODE_COLORS` pairs.
+- Active swatches show a checkmark and ring; hover uses a tight 4px glow in the paired text color. Buttons have accessible names, pressed states, and keyboard focus indicators.
+- Swatch selection updates the shared node color through `updateNodeData`; the existing shape renderer automatically derives the paired text color. No server calls or duplicate text-color state added.
+- Toolbar gesture classes and event guards prevent node drag, canvas pan, and node double-click editing from toolbar interactions.
+- Drag/drop and selection logic remain unchanged.
+
+## Feature 15 Validation
+
+- `npx tsc --noEmit` and targeted ESLint on both implementation files: passed.
+- All 26 existing regression tests pass; these do not cover browser swatch interactions.
+- `npm run build -- --webpack`: passed compilation, TypeScript, and page generation.
+- Default `npm run build` has the previously reproduced Turbopack CSS worker port-binding restriction; build script unchanged.
+- Browser checks for toolbar placement, swatch glow, immediate color changes, gesture isolation, and live collaboration remain pending.
+
+## Feature 16 Implementation
+
+- Added four small light handles per node, fading in on hover, with loose connections between sides.
+- Registered custom and default-fallback edge renderers and arrowed light-stroke defaults.
+- Added right-angle paths, dim resting/bright active styling, and a 24px invisible interaction path.
+- Edge labels use `EdgeLabelRenderer` and midpoint coordinates returned by `getSmoothStepPath`. Growing input drafts save to shared `data.label` through `updateEdgeData` on blur, Enter, or Escape.
+- Saved labels use pill badges; active empty edges show a faint editing hint. Label event guards prevent canvas gestures.
+
+## Feature 16 Validation
+
+- TypeScript and targeted ESLint pass for all four implementation files.
+- All 26 existing regression tests pass; these do not exercise new edge gestures.
+- `npm run build -- --webpack`: passed compilation, TypeScript, and page generation after the final connection-default change.
+- Default `npm run build` has the previously reproduced Turbopack CSS worker port-binding restriction; build script unchanged.
+- Inspected the installed Liveblocks connection handler and explicitly merge edge defaults into new connections so custom type and arrow styling are shared.
+- Live browser checks for handle connections, hover/selection, label saving, gesture isolation, and multi-session synchronization remain pending.
