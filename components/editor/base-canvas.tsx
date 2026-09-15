@@ -8,6 +8,7 @@ import type { ReactFlowInstance } from "@xyflow/react"
 import { ShapePanel } from "@/components/editor/shape-panel"
 import { CanvasControls } from "@/components/editor/canvas-controls"
 import { CanvasParticipants } from "@/components/editor/canvas-participants"
+import { DesignActivity } from "@/components/editor/design-activity"
 import { CanvasCursors } from "@/components/editor/canvas-cursors"
 import { CanvasEdgeRenderer } from "@/components/editor/canvas-edge"
 import { CanvasNodeRenderer } from "@/components/editor/canvas-node"
@@ -131,6 +132,7 @@ export function BaseCanvas({ templatesOpen, onTemplatesOpenChange, saveRequest, 
         <CanvasControls />
         <CanvasParticipants />
         <CanvasCursors />
+        <DesignActivity />
         <MiniMap
           className="overflow-hidden rounded-xl border border-surface-border"
           bgColor="var(--bg-surface)"

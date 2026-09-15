@@ -4,9 +4,14 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Phase
 
+- Feature 23 design agent implemented; automated validation passes, with live service verification and the default build limitation recorded below.
+
+- Trigger.dev bootstrap configured with a starter task; TypeScript and targeted lint pass. CLI authentication/project access verified. Live worker registration awaits approval.
 - Canvas autosave (feature 21) implemented; regression tests, targeted lint, and webpack production build pass. Default Turbopack build remains blocked by the environment port-binding restriction.
 
 ## Current Goal
+
+- Verify feature 23 with a registered Trigger.dev worker, Gemini, and multiple Liveblocks participants; feature 22 migration/runtime prerequisites still apply.
 
 - Verify feature 21 saving, empty-room recovery, and active-room preservation with a private Vercel Blob store in a signed-in browser. Features 18–20 browser acceptance remains pending.
 
@@ -51,7 +56,15 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## In Progress
 
-- None.
+- Trigger.dev live verification pending: automatic approval review rejected starting the dev worker because it may upload source/task code to Trigger.dev. User approval is required to proceed. DEV secret key is missing from local environment files and must be configured for app-side triggering.
+
+## Trigger.dev Setup
+
+- Retained the existing project ref and installed SDK/build packages; pinned SDK, build, and npm CLI commands to 4.6.0 with matching lockfile metadata.
+- Configured the documented root `trigger/` directory and exported a `hello-world` task that logs and returns a readiness message with a 30-second maximum duration.
+- Added `trigger:login`, `trigger:dev`, and `trigger:deploy` scripts and README instructions for local development, the DEV key, dashboard testing, and deployment.
+- Existing `.trigger` ignore rule and TypeScript config inclusion retained.
+- Validation: `tsc --noEmit`, targeted ESLint, `git diff --check`, and dependency/lockfile consistency check pass. CLI `whoami` confirmed authentication and access to the `ghost-ai` project. No task run or deployment performed.
 
 ## Feature 17 Implementation
 
@@ -349,3 +362,44 @@ Update this file whenever the current phase, active feature, or implementation s
 - Initialize the status as saved and establish the initial graph or successfully restored snapshot as the baseline. Unchanged canvases skip automatic writes; manual Save still persists explicitly.
 - Show saving only when a PUT starts, preserving debounced edits, recovery failures, and serialized writes.
 - Eight autosave regression tests pass, including no initial save for existing/restored canvases and manual saving after restoration. Targeted lint and TypeScript checks pass.
+
+## Feature 22 Scope
+
+- Implement backend-only design triggering, run ownership records, and read tokens using the existing Trigger.dev 4.6.0 setup.
+- Require authenticated project membership and matching room/project IDs (the existing room invariant). Token ownership means the authenticated user who initiated the run.
+- Return `{ runId }` (202) and `{ token }` (200); invalid input returns 400, anonymous requests 401, and denied access 403. Public tokens read only the requested run and expire after 15 minutes.
+
+## Feature 22 Implementation
+
+- Added authenticated design trigger and owner-verified token endpoints, with input validation, membership checks, room/project consistency, generic upstream errors, and exact-run read tokens.
+- Added TaskRun model, Project relation, and additive migration with the required unique run ID, run ID index, and user/project compound index. Generated Prisma client successfully.
+- Added the minimal `design-agent` echo task under the existing task directory with a 30-second duration. No AI providers, canvas mutations, or UI integration added.
+- Added cancellation compensation when TaskRun persistence fails after triggering.
+
+## Feature 22 Validation
+
+- Prisma schema validation/client generation, targeted ESLint, and 42 regression tests pass (eight new design task/API tests).
+- Default `npm run build` reproduces the existing Turbopack process/port-binding restriction (`Operation not permitted`).
+- Migration is supplied but has not been applied to the configured database. Live Trigger.dev execution/token issuance has not been exercised; it requires the server secret key and a registered worker.
+- `npm run build -- --webpack`: passes production compilation, TypeScript, and page generation, including both new AI routes. `git diff --check` passes.
+
+## Feature 23 Scope and Decisions
+
+- Implement Gemini planning and seven validated graph actions through the installed `@liveblocks/react-flow/node` `mutateFlow` utility.
+- No existing status feed or layout spacing rules were found. Use the Liveblocks `design-status` feed and a canvas activity panel; preserve existing cursor and participant components.
+- Layout uses a 20px grid, at least 60px clearance around affected nodes, existing shape defaults, and the existing 80×60 resize minimum. Preserve unrelated content; reject invalid references and conflicting placements.
+- Deliver backend execution first, then the minimal presence/status display, then validation. Prompt submission UI is outside this task implementation; the existing feature 22 API triggers this task.
+
+## Feature 23 Implementation
+
+- Replaced the echo task with a bounded Gemini tool loop using `GOOGLE_AI_API_KEY`, current canvas context, and all seven validated actions through `mutateFlow`.
+- Serialized model mutations, checked live references/placement, preserved unrelated graph content, and removed incident edges with deleted nodes. Automatic task replay is disabled; partial failures retain already applied valid changes and report them.
+- Added run-specific ephemeral presence, start/processing/complete/error feed messages, timeout/cancellation handling, and final cursor/thinking cleanup with TTL fallback.
+- Added a Liveblocks feed subscriber panel and thinking text on the existing collaborator cursor. No new graph state system or prompt submission UI was added.
+
+## Feature 23 Validation
+
+- All 44 tests pass: 42 existing/API/task tests plus two tests exercising the actual Liveblocks server flow utility. Coverage includes all seven actions, palette/shape/size checks, spacing, duplicate/missing IDs, incident edge cleanup, unrelated-node preservation, progress, existing feeds, provider/storage failures, incomplete generation, and final presence cleanup.
+- TypeScript, targeted ESLint, and `git diff --check` pass. `npm run build -- --webpack` passes compilation, TypeScript, and page generation.
+- `npm run build` remains blocked by the existing Turbopack CSS worker process/port-binding restriction (`Operation not permitted`), including an elevated retry. Build configuration is unchanged.
+- Live Gemini generation, Trigger.dev worker execution, and multi-user browser acceptance have not been exercised. The worker needs `GOOGLE_AI_API_KEY` and `LIVEBLOCKS_SECRET_KEY`; local `.env.local` values do not configure a deployed worker automatically. Existing feature 22 migration/worker prerequisites remain pending.

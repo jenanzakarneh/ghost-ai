@@ -20,6 +20,26 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Background tasks (Trigger.dev)
+
+Tasks live in `trigger/`, with the project reference in `trigger.config.ts`.
+The SDK, build package, and CLI commands use version 4.6.0; upgrade them together.
+
+1. Run `npm run trigger:login` if the CLI is not already authenticated.
+2. Copy the project's **DEV** API key from the Trigger.dev dashboard into
+   `.env.local` as `TRIGGER_SECRET_KEY=tr_dev_...`. Keep it server-only.
+   Next.js uses this key when backend code triggers tasks.
+3. Run `npm run trigger:dev` in a separate terminal alongside `npm run dev`.
+4. Open the project's development dashboard and test `hello-world` with `{}`.
+   It returns `{ "message": "Ghost AI background tasks are ready." }`.
+
+The starter task verifies worker setup; AI design and spec workflows are separate
+features. Deploy tasks when ready using `npm run trigger:deploy`; configure task
+secrets in the corresponding Trigger.dev environment before deploying workflows
+that need external services.
+
+See the [Trigger.dev setup guide](https://trigger.dev/docs/manual-setup).
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

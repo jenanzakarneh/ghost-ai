@@ -113,3 +113,8 @@ shadcn/ui on top of Tailwind. No custom design system. Components live in `compo
 ## Icons
 
 Lucide React. Stroke-based icons only — no filled variants. Icon sizes: `h-4 w-4` for inline, `h-5 w-5` for buttons, `h-8 w-8` for feature icons in empty states.
+
+### AI design layout and activity (feature 23)
+
+- AI-created and moved nodes snap to the 20px canvas grid. Affected nodes retain at least 60px clearance from other nodes; new nodes use the existing shape defaults, and resized nodes retain the 80×60 minimum.
+- A compact top-left canvas activity panel displays recent shared design-status messages. Existing collaborator cursors identify the AI and show its thinking state.

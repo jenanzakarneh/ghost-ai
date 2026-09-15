@@ -9,6 +9,7 @@ model Project {
   updatedAt       DateTime      @updatedAt @map("updated_at")
 
   collaborators  ProjectCollaborator[]
+  taskRuns       TaskRun[]
 
   @@index([ownerId])
   @@index([createdAt])

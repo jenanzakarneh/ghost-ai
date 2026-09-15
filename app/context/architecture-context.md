@@ -99,3 +99,16 @@
 - `/hook/use-canvas-autosave.ts` debounces graph changes for one second and serializes writes within each mounted editor. Selection, dragging, measured dimensions, presence, and viewport are excluded from snapshots. Cross-client snapshots use last-write-wins; Liveblocks remains the collaborative graph authority.
 - Suspense ensures room storage is loaded before recovery. Nonempty rooms skip the GET entirely; empty rooms recheck storage after the fetch before batched restoration. Failed recovery blocks autosave until retry succeeds.
 - Initial and restored graphs establish the autosave baseline without an automatic PUT. The navbar Save button starts as saved, reports saving only during PUT requests, and retries failed loads or saves. Pending debounce timers are cleaned up on unmount; closing before a successful save is not guaranteed to flush a Blob snapshot.
+
+## Design task API (feature 22)
+
+- POST `/api/ai/design` accepts `{ prompt, roomId, projectId }`, requires project membership and equal room/project IDs, triggers `design-agent`, stores the run with authenticated user ownership in PostgreSQL, and returns `{ runId }` with status 202.
+- `TaskRun` relates to Project with cascading deletion and stores unique Trigger.dev run IDs, initiating Clerk user IDs, and creation times. If persistence fails after triggering, the API attempts cancellation and returns an error; these services do not share an atomic transaction.
+- POST `/api/ai/design/token` accepts `{ runId }`, verifies the initiating user through TaskRun, and returns `{ token }` with no-store headers. Tokens expire after 15 minutes and grant read access only to that run.
+- `trigger/design-agent.ts` accepts `{ prompt, roomId }` using the existing SDK task setup; feature 23 implements Gemini generation and shared canvas updates as described below.
+
+## Design agent execution (feature 23)
+
+- Gemini plans bounded actions against a snapshot read with `mutateFlow`; each action rechecks the current shared graph and uses the same utility to mutate the default `flow` storage key. No parallel graph store is introduced.
+- The Liveblocks `design-status` feed retains run-scoped start, processing, completion, and failure messages. A canvas panel subscribes for all members.
+- Run-specific ephemeral AI presence reuses `cursor` and `thinking` and the existing participant rendering, with bounded TTL and cleanup. Task retries are disabled to avoid replaying partially applied edits.

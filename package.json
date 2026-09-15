@@ -4,12 +4,16 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "trigger:dev": "npx trigger.dev@4.6.0 dev --skip-update-check",
+    "trigger:login": "npx trigger.dev@4.6.0 login",
+    "trigger:deploy": "npx trigger.dev@4.6.0 deploy",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma skills sync || exit 0"
   },
   "dependencies": {
+    "@ai-sdk/google": "^4.0.70",
     "@clerk/nextjs": "^7.9.1",
     "@clerk/ui": "^1.32.2",
     "@liveblocks/client": "^3.24.1",
@@ -19,8 +23,11 @@
     "@liveblocks/react-ui": "^3.24.1",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
+    "@trigger.dev/react-hooks": "^4.6.0",
+    "@trigger.dev/sdk": "4.6.0",
     "@vercel/blob": "^2.8.0",
     "@xyflow/react": "^12.11.6",
+    "ai": "^7.0.101",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.2.6",
     "dotenv": "^17.4.2",
@@ -33,6 +40,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@trigger.dev/build": "4.6.0",
     "@types/node": "^20",
     "@types/pg": "^8.23.1",
     "@types/react": "^19",
