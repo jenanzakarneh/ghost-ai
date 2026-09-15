@@ -78,7 +78,7 @@
 
 - The workspace page retains server-side membership checks. Its client shell mounts `CanvasRoom` only for an active project, keyed by project/room ID.
 - `CanvasRoom` owns the Liveblocks providers, initial presence, loading state, and connection error boundary. `BaseCanvas` uses `useLiveblocksFlow` with suspense and empty initial nodes/edges; Liveblocks manages the shared graph under its default `flow` storage key.
-- `types/canvas.ts` defines node data and the `canvasNode`/`canvasEdge` type identifiers. Features 12–13 add a shape panel and a shared shape visual for `canvasNode` rendering and native drag images. Validated shape drops use React Flow screen-to-flow coordinates and the Liveblocks node-change handler to add shared nodes. CSS renders rectangle, pill, and circle; scalable SVG renders diamond, hexagon, and cylinder. Native drag images use the same default dimensions as dropped nodes and require no shared preview state. Application snapshot persistence is deferred.
+- `types/canvas.ts` defines node data and the `canvasNode`/`canvasEdge` type identifiers. Features 12–13 add a shape panel and a shared shape visual for `canvasNode` rendering and native drag images. Validated shape drops use React Flow screen-to-flow coordinates and the Liveblocks node-change handler to add shared nodes. CSS renders rectangle, pill, and circle; scalable SVG renders diamond, hexagon, and cylinder. Native drag images use the same default dimensions as dropped nodes and require no shared preview state. Feature 21 adds application snapshot persistence as described below.
 
 - Feature 14 uses React Flow `NodeResizer` and `updateNodeData` to send dimensions and label updates through the existing controlled `onNodesChange` Liveblocks handler. Only editing visibility is local UI state; labels and dimensions remain in the shared graph.
 
@@ -92,3 +92,10 @@
 
 - `/api/projects/[projectId]/collaborators` lists collaborators for members and accepts owner-only POST/DELETE mutations by email. Addresses are trimmed and lowercased; duplicate invitations return 409. Inviting grants access without sending email notifications.
 - Clerk Backend API enriches verified collaborator emails with names and avatars at read time. Missing profiles or unavailable enrichment fall back to email; no local user table is added.
+
+## Canvas persistence (feature 21)
+
+- Authenticated members use GET/PUT `/api/projects/[projectId]/canvas`. Prisma reuses `canvasJsonPath` for the URL; private Vercel Blob stores JSON at `canvas/{projectId}.json`. Requires a private Blob store and server-only `BLOB_READ_WRITE_TOKEN`; reads bypass the Blob cache.
+- `/hook/use-canvas-autosave.ts` debounces graph changes for one second and serializes writes within each mounted editor. Selection, dragging, measured dimensions, presence, and viewport are excluded from snapshots. Cross-client snapshots use last-write-wins; Liveblocks remains the collaborative graph authority.
+- Suspense ensures room storage is loaded before recovery. Nonempty rooms skip the GET entirely; empty rooms recheck storage after the fetch before batched restoration. Failed recovery blocks autosave until retry succeeds.
+- Initial and restored graphs establish the autosave baseline without an automatic PUT. The navbar Save button starts as saved, reports saving only during PUT requests, and retries failed loads or saves. Pending debounce timers are cleaned up on unmount; closing before a successful save is not guaranteed to flush a Blob snapshot.

@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { Plus } from "lucide-react"
+import { AiSidebar } from "@/components/editor/ai-sidebar"
 import { CanvasRoom } from "@/components/editor/canvas-room"
 import { EditorNavbar } from "@/components/editor/editor-navbar"
 import { ShareDialog } from "@/components/editor/share-dialog"
@@ -15,6 +16,8 @@ interface EditorHomeProps extends ProjectLists {
 }
 
 export function EditorHome({ ownedProjects, sharedProjects, activeProject }: EditorHomeProps) {
+  const [saveStatus, setSaveStatus] = useState<import("@/lib/canvas-snapshot").CanvasSaveStatus>("saved")
+  const [saveRequest, setSaveRequest] = useState(0)
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false)
   const [isShareOpen, setIsShareOpen] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
@@ -24,6 +27,8 @@ export function EditorHome({ ownedProjects, sharedProjects, activeProject }: Edi
   return (
     <main className="h-dvh overflow-hidden bg-base">
       <EditorNavbar
+        saveStatus={saveStatus}
+        onSave={() => setSaveRequest((request) => request + 1)}
         onTemplates={() => setIsTemplatesOpen(true)}
         onShare={() => setIsShareOpen(true)}
         projectName={activeProject?.name}
@@ -44,7 +49,7 @@ export function EditorHome({ ownedProjects, sharedProjects, activeProject }: Edi
       />
       <section className="flex h-full items-center justify-center pt-16">
         {activeProject ? (
-          <CanvasRoom key={activeProject.id} roomId={activeProject.id} templatesOpen={isTemplatesOpen} onTemplatesOpenChange={setIsTemplatesOpen} />
+          <CanvasRoom saveRequest={saveRequest} onSaveStatus={setSaveStatus} key={activeProject.id} roomId={activeProject.id} templatesOpen={isTemplatesOpen} onTemplatesOpenChange={setIsTemplatesOpen} />
         ) : (
           <div className="px-6 text-center">
             <h1 className="text-2xl font-semibold text-copy-primary">Create a project or open an existing one</h1>
@@ -62,13 +67,7 @@ export function EditorHome({ ownedProjects, sharedProjects, activeProject }: Edi
           </div>
         )}
       </section>
-      {activeProject && isAiSidebarOpen && (
-        <aside id="ai-sidebar" aria-labelledby="ai-sidebar-title"
-          className="fixed right-4 top-20 bottom-4 z-20 flex w-80 max-w-[calc(100vw-2rem)] flex-col rounded-2xl border border-surface-border bg-surface/95 p-5 backdrop-blur-sm">
-          <h2 id="ai-sidebar-title" className="text-base font-semibold text-copy-primary">AI assistant</h2>
-          <p className="flex flex-1 items-center justify-center text-center text-sm text-copy-muted">AI chat is coming soon.</p>
-        </aside>
-      )}
+      {activeProject && <AiSidebar key={activeProject.id} isOpen={isAiSidebarOpen} onClose={() => setIsAiSidebarOpen(false)} />}
       {activeProject && isShareOpen && <ShareDialog project={activeProject} onClose={() => setIsShareOpen(false)} />}
       <ProjectDialogs state={projectDialogs} />
     </main>

@@ -11,6 +11,8 @@ import {
 import { BaseCanvas } from "@/components/editor/base-canvas"
 
 export interface CanvasTemplateControls {
+  saveRequest: number
+  onSaveStatus: (status: import("@/lib/canvas-snapshot").CanvasSaveStatus) => void
   templatesOpen: boolean
   onTemplatesOpenChange: (open: boolean) => void
 }

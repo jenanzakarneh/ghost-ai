@@ -4,11 +4,11 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Phase
 
-- Presence avatars and cursors (feature 19) implemented; targeted lint, 26 regression tests, and webpack production build (including TypeScript) pass. Default Turbopack build remains blocked by the environment port-binding restriction.
+- Canvas autosave (feature 21) implemented; regression tests, targeted lint, and webpack production build pass. Default Turbopack build remains blocked by the environment port-binding restriction.
 
 ## Current Goal
 
-- Verify feature 19 participant filtering, avatar overflow, and cursor synchronization in signed-in browser sessions. Feature 18 browser acceptance remains pending.
+- Verify feature 21 saving, empty-room recovery, and active-room preservation with a private Vercel Blob store in a signed-in browser. Features 18–20 browser acceptance remains pending.
 
 ## Completed
 
@@ -299,3 +299,53 @@ Update this file whenever the current phase, active feature, or implementation s
 - `npm run build -- --webpack` passes production compilation, TypeScript, and page generation.
 - `npm run build` remains blocked by the existing Turbopack CSS worker port-binding restriction (`Operation not permitted`), including an elevated retry. Build configuration is unchanged.
 - Signed-in multi-user browser checks remain pending: own-ID exclusion across sessions, zero/five/overflow collaborator states, Clerk profile controls, image fallback, and cursor alignment during pan/zoom and clearing on mouse leave.
+
+## Feature 20 Scope Clarifications
+
+- The existing AI placeholder has floating placement but no transition or shadow classes. Preserve its geometry and parent toggle state, using the project sidebar's slide treatment for the specified animation and shadow.
+- Use existing token equivalents: `text-copy-primary`, `text-copy-muted`, `bg-accent-dim`, `text-ai-text`, and `bg-ai` for the specification's semantic color names.
+- Submission is local UI only: starter chips fill the composer; sending displays the user message and an explicit static assistant availability notice. Generate Spec remains disabled until generation is implemented; the demo card is static.
+
+## Feature 20 Implementation
+
+- Extracted `AiSidebar` with parent-controlled visibility, existing floating geometry, right-side slide transition, dark surface, border, and shadow. Closed content is inert; local chat state survives toggling and resets per project.
+- Added the AI Workspace header, close button, and shadcn AI Architect/Specs tabs using existing color tokens.
+- Added scrollable local chat, all three starter prompt chips, styled user/assistant bubbles, and a 72–160px auto-resizing composer with Enter submit and Shift+Enter newline support.
+- Added the Specs generate placeholder and static demo card with disabled download. No backend, Liveblocks, or AI generation integration.
+
+## Feature 20 Validation
+
+- Targeted ESLint passes for the sidebar and parent integration; `git diff --check` passes.
+- `npm run build -- --webpack` passes compilation, TypeScript, and page generation.
+- `npm run build` initially failed to fetch Google Fonts; the network-enabled retry reproduced the existing Turbopack CSS worker port-binding restriction (`Operation not permitted`). Build configuration is unchanged.
+- Browser visual and interaction checks remain pending; no live AI or spec generation is included in this shell.
+
+## Feature 21 Scope and Progress
+
+- Implementing canvas persistence in separate API and editor integration steps.
+- Reuse `canvasJsonPath` in the actual schema at `prisma/models/project.prisma`; no migration needed.
+- Use private Vercel Blob storage with `BLOB_READ_WRITE_TOKEN`, deterministic `canvas/{projectId}.json` paths, and uncached reads.
+- Add the specified `/hook` autosave hook with a one-second debounce and serialized saves. Restore only into empty room storage, checking again after the fetch; failed loads must not trigger an empty overwrite.
+- The navbar has no existing Save button, so add a compact Save button with saving/saved/error feedback and manual retry.
+
+## Feature 21 Implementation
+
+- Installed `@vercel/blob`; reused `prisma/models/project.prisma` → `canvasJsonPath` without a schema migration.
+- Added member-authorized GET/PUT canvas routes, graph input validation, private JSON uploads, Prisma URL updates, and uncached snapshot reads. Missing snapshots return `canvas: null`; upstream failures return generic errors.
+- Added `/hook/use-canvas-autosave.ts` with a one-second debounce, serialized in-flight saves, saving/saved/error status, and manual retry. Transient renderer state is excluded from saved JSON.
+- Existing room content skips loading entirely. Empty rooms recheck live storage after fetching before restoring through batched Liveblocks handlers and fitting the viewport. Failed recovery blocks autosave to protect the saved snapshot.
+- Added the navbar Save button and status indicator; retained the existing AI sidebar work.
+
+## Feature 21 Validation
+
+- `node --test tests/canvas-autosave.test.mjs tests/project-api.test.mjs`: 33 passing tests, including authorization, Blob/Prisma separation, absent snapshots, storage errors, graph validation, debouncing, existing-room load avoidance, and failed-load retry protection.
+- Targeted implementation ESLint and webpack production build (including TypeScript and route generation) pass.
+- `npm run build`: blocked by the existing Turbopack CSS worker port-binding restriction (`Operation not permitted`), including an elevated retry; build configuration unchanged.
+- Live authenticated browser and external Blob integration checks remain pending. Runtime requires a private Blob store with `BLOB_READ_WRITE_TOKEN`.
+
+## Feature 21 Initial Save Status Fix
+
+- Root cause: the navbar initialized to saving, recovery reported saving for a GET, and an unset snapshot baseline caused an automatic PUT on mount.
+- Initialize the status as saved and establish the initial graph or successfully restored snapshot as the baseline. Unchanged canvases skip automatic writes; manual Save still persists explicitly.
+- Show saving only when a PUT starts, preserving debounced edits, recovery failures, and serialized writes.
+- Eight autosave regression tests pass, including no initial save for existing/restored canvases and manual saving after restoration. Targeted lint and TypeScript checks pass.

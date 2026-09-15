@@ -1,13 +1,15 @@
 "use client"
 
 import { UserButton } from "@clerk/nextjs"
-import { LayoutTemplate, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Share2 } from "lucide-react"
+import { Save, Loader2, Check, AlertCircle, LayoutTemplate, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Share2 } from "lucide-react"
 import type { ComponentProps } from "react"
 
 import { Button } from "@/components/ui/button"
 import { cn } from "cn"
 
 interface EditorNavbarProps extends ComponentProps<"header"> {
+  saveStatus?: import("@/lib/canvas-snapshot").CanvasSaveStatus
+  onSave?: () => void
   onTemplates?: () => void
   onShare?: () => void
   projectName?: string
@@ -18,6 +20,8 @@ interface EditorNavbarProps extends ComponentProps<"header"> {
 }
 
 export function EditorNavbar({
+  saveStatus,
+  onSave,
   onTemplates,
   onShare,
   projectName,
@@ -61,6 +65,14 @@ export function EditorNavbar({
         <div className="flex shrink-0 items-center justify-end gap-2">
           {projectName && (
             <>
+              <Button type="button" variant="ghost" onClick={onSave} aria-label="Save canvas">
+                <Save className="h-4 w-4" />
+                <span>Save</span>
+                <span role="status" className="flex items-center gap-1 text-xs text-copy-muted">
+                  {saveStatus === "saving" ? <Loader2 className="h-3 w-3 animate-spin" /> : saveStatus === "error" ? <AlertCircle className="h-3 w-3" /> : <Check className="h-3 w-3" />}
+                  {saveStatus === "saving" ? "Saving…" : saveStatus === "error" ? "Error" : "Saved"}
+                </span>
+              </Button>
               <Button type="button" variant="ghost" onClick={onTemplates} aria-label="Open starter templates">
                 <LayoutTemplate className="h-4 w-4" />
                 <span className="hidden sm:inline">Templates</span>
