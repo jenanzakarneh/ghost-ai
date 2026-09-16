@@ -4,12 +4,28 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Phase
 
+- Feature 27 backend spec generation implemented; 58 regression tests, TypeScript, targeted lint, and webpack production build pass. Live Trigger.dev/Gemini execution remains unverified; default Turbopack build remains environment-blocked.
+
+- Feature 26 frontend implemented against the exact specified contract; 49 JavaScript regression tests, targeted lint, TypeScript, and webpack production build pass. Live integration is blocked by the existing backend contract mismatch described below.
+
+- Feature 25 collaborative sidebar chat implemented; TypeScript, targeted lint, payload validation, and webpack production build pass. Default Turbopack build remains environment-blocked; live multi-user acceptance is pending.
+
+- Feature 24 shared AI presence implemented; TypeScript, targeted lint, payload validation, and webpack production build pass. Live multi-user acceptance remains pending.
+
 - Feature 23 design agent implemented; automated validation passes, with live service verification and the default build limitation recorded below.
 
 - Trigger.dev bootstrap configured with a starter task; TypeScript and targeted lint pass. CLI authentication/project access verified. Live worker registration awaits approval.
 - Canvas autosave (feature 21) implemented; regression tests, targeted lint, and webpack production build pass. Default Turbopack build remains blocked by the environment port-binding restriction.
 
 ## Current Goal
+
+- Verify feature 27 against a configured Trigger.dev worker and Gemini: authorized trigger, one-hour owner token, realtime metadata, and Markdown output.
+
+- Validate feature 26 frontend and reconcile the design API contract in a separately scoped backend change before live multi-user acceptance.
+
+- Verify feature 25 in a signed-in multi-user room: live delivery, reload/history, sender/timestamp display, and draft retention on failed sends.
+
+- Verify feature 24 in a signed-in multi-user room: latest generic status, composer busy/idle transitions, and cursor spinners.
 
 - Verify feature 23 with a registered Trigger.dev worker, Gemini, and multiple Liveblocks participants; feature 22 migration/runtime prerequisites still apply.
 
@@ -403,3 +419,90 @@ Update this file whenever the current phase, active feature, or implementation s
 - TypeScript, targeted ESLint, and `git diff --check` pass. `npm run build -- --webpack` passes compilation, TypeScript, and page generation.
 - `npm run build` remains blocked by the existing Turbopack CSS worker process/port-binding restriction (`Operation not permitted`), including an elevated retry. Build configuration is unchanged.
 - Live Gemini generation, Trigger.dev worker execution, and multi-user browser acceptance have not been exercised. The worker needs `GOOGLE_AI_API_KEY` and `LIVEBLOCKS_SECRET_KEY`; local `.env.local` values do not configure a deployed worker automatically. Existing feature 22 migration/worker prerequisites remain pending.
+
+## Feature 24 Scope and Decisions
+
+- Use `ai-status-feed` with a generic `{ text?: string }` payload validated in `types/tasks.ts`. Presence remains the source of active generation state (any participant, including self, with `thinking: true`); feed text does not latch the composer into a busy state.
+- Mount the sidebar inside the existing room provider, create/reuse the generic feed, and display only its newest message. Existing feature 23 generation and design-status feed remain unchanged; no task triggering is added.
+
+## Feature 24 Implementation
+
+- Moved the existing sidebar under the canvas RoomProvider without introducing a second room connection or shared graph state.
+- Added generic `ai-status-feed` creation/reuse and subscription with loading/error handling. Only the latest message is considered; `types/tasks.ts` validates its optional text before rendering.
+- Shared thinking presence (self or any other participant) shows a small working indicator and disables the textarea, starter prompt input, and send action with a loading spinner. Tabs, close controls, and content remain usable; drafts survive activity changes.
+- Cursor name badges show a small spinner only for `thinking: true`, including reduced-motion styling.
+- No generation logic, task triggers, or background task changes added. The existing feature 23 task still publishes to `design-status`; future generic status producers should publish `{ text?: string }` to `ai-status-feed`.
+
+## Feature 24 Validation
+
+- `npx tsc --noEmit`, targeted ESLint, and `git diff --check` pass.
+- Executed payload validation checks for missing/empty/valid text, extra generic metadata, and invalid null/array/primitive/non-string payloads; all pass.
+- `npm run build -- --webpack` passes production compilation, TypeScript, and page generation.
+- `npm run build` fails on the existing Turbopack CSS worker port-binding restriction (`Operation not permitted`), including an elevated retry. Build configuration remains unchanged.
+- Live browser verification remains pending for multi-user status updates, simultaneous feed creation, composer transitions, preserved drafts, usable sidebar tabs, and cursor spinners during pan/zoom.
+
+## Feature 25 Scope and Decisions
+
+- Implement room-scoped `ai-chat` using the existing Liveblocks feed hooks, separate from status feeds. Replace local preview messages and the static assistant reply.
+- Validate sender (room user ID and display name), user/assistant role, nonempty content, and ISO timestamp with Zod in `types/tasks.ts`. Order messages by server creation time and expose earlier history pagination.
+- Preserve feature 24 thinking-state controls. Sending has its own pending/error state; failed sends retain the draft.
+
+## Feature 25 Implementation
+
+- Replaced local sidebar messages and the static assistant reply with room-scoped Liveblocks `ai-chat` subscription and sending, following existing feed creation/reuse patterns.
+- Added Zod as a direct dependency and validated incoming/outgoing sender ID/name, role, content, and timestamp in `types/tasks.ts`. Invalid feed entries are skipped; valid messages show sender, timestamp, and content in server creation order with stable IDs.
+- Added earlier-history loading, feed loading/error states, and send pending/error states. Drafts clear after successful sends and remain available for retry after failures; duplicate submissions are blocked.
+- Preserved status feeds, thinking-state controls, sidebar styling, and Specs tab. No AI replies, task calls, or parallel realtime storage added.
+
+## Feature 25 Validation
+
+- `npx tsc --noEmit`, targeted ESLint on the sidebar/feed hook/schema, and `git diff --check` pass.
+- Executed Zod payload checks for valid messages, trimmed content, missing fields, invalid sender/role/content/timestamp, and distinct chat/status feed IDs; all pass.
+- `npm run build -- --webpack` passes compilation, TypeScript, and page generation.
+- Required `npm run build` remains blocked by the existing Turbopack CSS worker process/port-binding restriction (`Operation not permitted`), including an elevated retry. Build configuration is unchanged.
+- Live authenticated multi-user checks have not been exercised: feed creation/reuse, send/receive, history across reloads, pagination, and failure/retry behavior remain browser acceptance items.
+
+## Feature 26 Scope and Integration Questions
+
+- Implement the specified frontend contract exactly: POST `{ prompt, roomId }`, receive `{ runId, publicToken }`, and subscribe using `useRealtimeRun`. Backend and task changes are excluded by the feature specification.
+- Integration blocker: the current feature 22 endpoint requires `projectId`, returns only `{ runId }`, and issues tokens through a separate endpoint. The specified frontend cannot start a live run until that contract is reconciled in a backend feature.
+- The current task publishes to `design-status`, not `ai-status-feed`; the sidebar will consume the specified generic feed without changing task producers.
+- Expose the existing canvas palette green (`#62C073`) through a shared CSS/Tailwind token to meet the exact color requirement without introducing a new palette color.
+- Completion messages are published by the initiating mounted client; reload recovery and server-published chat completion are outside this frontend-only scope.
+
+## Feature 26 Implementation
+
+- Added a focused frontend hook that publishes the user prompt before POSTing `{ prompt, roomId }`, validates `{ runId, publicToken }`, and subscribes using `useRealtimeRun` with local credentials and per-run cache isolation.
+- Prevents duplicate submissions; publishes one final assistant notice for successful/failed terminal outcomes and shared notices for request/credential/subscription errors. Drafts survive failed user-message delivery. A local alert is the fallback when the chat feed itself cannot deliver an error.
+- Preserved the sidebar layout, history, and Specs tab. Local runs plus shared thinking presence disable the composer and display a spinner; the latest generic status appears in a compact strip directly above the input only during activity.
+- Applied the existing palette green through a shared CSS/Tailwind token to user bubbles and the send button, with dark contrasting text. Assistant bubbles use dark surfaces and light text.
+- No backend/task changes, final graph fetching, manual canvas updates, or additional room connections.
+
+## Feature 26 Validation
+
+- `node --test tests/*.test.mjs`: 49 passing tests, including seven new lifecycle tests for feed-before-request ordering, exact request/token contract, duplicate prevention, successful and failed terminal outcomes, consecutive runs, invalid credentials, transport/subscription errors, and failed feed delivery.
+- `npx tsc --noEmit`, targeted ESLint for the hook/sidebar/new tests, and `git diff --check` pass.
+- `npm run build -- --webpack` passes production compilation, TypeScript, and page generation with the final UI styles.
+- `npm run build` reproduces the existing Turbopack CSS worker process/port-binding restriction (`Operation not permitted`). Build configuration remains unchanged.
+- Live acceptance is not complete: the unchanged API rejects the specified request and does not return `publicToken`; the task does not produce generic status messages. Authenticated multi-session/browser verification remains pending after backend contract reconciliation.
+
+## Feature 27 Scope and Decisions
+
+- Reuse existing chat message payloads and canvas snapshot validation through Zod; empty chat/graph arrays are valid context. Client project IDs are ignored; membership resolved from roomId supplies the project ID.
+- Deliver API/token routes first, then the task and regression checks. Tokens grant exact-run read access for one hour.
+- Reuse Gemini configuration and bounded execution from the design task, with one task attempt and one provider retry. Return a plain Markdown string; no artifact persistence or frontend changes.
+
+## Feature 27 Implementation
+
+- Added Zod-validated spec trigger and token routes. Project membership is resolved from roomId; TaskRun ownership uses the authenticated user. Failed ownership persistence attempts cancellation before returning a generic error.
+- Tokens require the initiating user's TaskRun and grant only that run's read scope for one hour with no-store response headers.
+- Added generate-spec as a schemaTask using existing Gemini configuration, bounded execution, metadata status, structured lifecycle logging, and failure propagation. Output is a nonempty Markdown string; incomplete model responses fail.
+- No frontend, schema migration, canvas/chat model change, or final spec storage added.
+
+## Feature 27 Validation
+
+- `node --test tests/*.test.mjs`: 58 passing tests, including nine new spec tests covering authorization, ignored client project/user IDs, invalid chat/graph input, ownership persistence and cancellation compensation, token ownership/scope/expiry, task schema, Markdown output, metadata transitions, and provider/configuration/incomplete-output failures.
+- `npx tsc --noEmit`, targeted ESLint, and `git diff --check` pass.
+- `npm run build -- --webpack` passes compilation, TypeScript, and route generation, including both spec endpoints.
+- `npm run build` fails on the existing Turbopack CSS worker process/port-binding restriction (`Operation not permitted`). Build configuration is unchanged.
+- Live Trigger.dev/Gemini execution was not performed. Runtime still requires the existing TaskRun migration, app Trigger.dev credentials, a registered worker, and GOOGLE_AI_API_KEY in that worker's environment. Mocked tests verify the lifecycle but do not establish live service acceptance.

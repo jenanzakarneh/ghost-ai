@@ -118,3 +118,8 @@ Lucide React. Stroke-based icons only — no filled variants. Icon sizes: `h-4 w
 
 - AI-created and moved nodes snap to the 20px canvas grid. Affected nodes retain at least 60px clearance from other nodes; new nodes use the existing shape defaults, and resized nodes retain the 80×60 minimum.
 - A compact top-left canvas activity panel displays recent shared design-status messages. Existing collaborator cursors identify the AI and show its thinking state.
+
+### Functional AI chat (feature 26)
+
+- `--accent-chat` / `chat-accent` exposes the existing canvas palette green (`#62C073`) for user bubble fills, send buttons, and active status accents. Green fills use base-colored text for contrast; assistant bubbles use elevated surfaces with primary text.
+- The compact generic status strip sits above the composer and appears only during local run activity or shared thinking presence.

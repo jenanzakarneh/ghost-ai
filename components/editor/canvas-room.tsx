@@ -19,6 +19,7 @@ export interface CanvasTemplateControls {
 
 interface CanvasRoomProps extends CanvasTemplateControls {
   roomId: string
+  children?: ReactNode
 }
 
 interface CanvasErrorBoundaryProps {
@@ -71,13 +72,14 @@ function CanvasConnection(props: CanvasTemplateControls) {
   )
 }
 
-export function CanvasRoom({ roomId, ...props }: CanvasRoomProps) {
+export function CanvasRoom({ roomId, children, ...props }: CanvasRoomProps) {
   return (
     <div className="h-full w-full" aria-label="System design canvas">
       <CanvasErrorBoundary key={roomId}>
         <LiveblocksProvider authEndpoint="/api/liveblocks-auth">
           <RoomProvider id={roomId} initialPresence={{ cursor: null, thinking: false }}>
             <CanvasConnection {...props} />
+            {children}
           </RoomProvider>
         </LiveblocksProvider>
       </CanvasErrorBoundary>

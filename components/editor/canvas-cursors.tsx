@@ -1,5 +1,6 @@
 "use client"
 
+import { LoaderCircle } from "lucide-react"
 import { useAuth } from "@clerk/nextjs"
 import { useOther, useOthersConnectionIds } from "@liveblocks/react/suspense"
 import { useViewport } from "@xyflow/react"
@@ -15,8 +16,9 @@ function ParticipantCursor({ connectionId, userId }: { connectionId: number; use
       <svg width="18" height="22" viewBox="0 0 18 22" fill="currentColor">
         <path d="M1 1L16 13L9 14L6 21Z" stroke="var(--bg-base)" strokeWidth="1.5" strokeLinejoin="round" />
       </svg>
-      <span className="absolute left-4 top-4 whitespace-nowrap rounded-xl px-2 py-1 text-xs font-medium text-base" style={{ backgroundColor: other.info.color }}>
-        {other.info.name}{other.presence.thinking ? " · Thinking…" : ""}
+      <span className="absolute left-4 top-4 flex items-center gap-1.5 whitespace-nowrap rounded-xl px-2 py-1 text-xs font-medium text-base" style={{ backgroundColor: other.info.color }}>
+        {other.info.name}
+        {other.presence.thinking === true && <LoaderCircle className="h-3 w-3 animate-spin motion-reduce:animate-none" />}
       </span>
     </div>
   )

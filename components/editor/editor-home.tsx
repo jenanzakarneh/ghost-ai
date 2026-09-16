@@ -49,7 +49,9 @@ export function EditorHome({ ownedProjects, sharedProjects, activeProject }: Edi
       />
       <section className="flex h-full items-center justify-center pt-16">
         {activeProject ? (
-          <CanvasRoom saveRequest={saveRequest} onSaveStatus={setSaveStatus} key={activeProject.id} roomId={activeProject.id} templatesOpen={isTemplatesOpen} onTemplatesOpenChange={setIsTemplatesOpen} />
+          <CanvasRoom saveRequest={saveRequest} onSaveStatus={setSaveStatus} key={activeProject.id} roomId={activeProject.id} templatesOpen={isTemplatesOpen} onTemplatesOpenChange={setIsTemplatesOpen}>
+            <AiSidebar isOpen={isAiSidebarOpen} onClose={() => setIsAiSidebarOpen(false)} />
+          </CanvasRoom>
         ) : (
           <div className="px-6 text-center">
             <h1 className="text-2xl font-semibold text-copy-primary">Create a project or open an existing one</h1>
@@ -67,7 +69,6 @@ export function EditorHome({ ownedProjects, sharedProjects, activeProject }: Edi
           </div>
         )}
       </section>
-      {activeProject && <AiSidebar key={activeProject.id} isOpen={isAiSidebarOpen} onClose={() => setIsAiSidebarOpen(false)} />}
       {activeProject && isShareOpen && <ShareDialog project={activeProject} onClose={() => setIsShareOpen(false)} />}
       <ProjectDialogs state={projectDialogs} />
     </main>

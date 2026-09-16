@@ -112,3 +112,27 @@
 - Gemini plans bounded actions against a snapshot read with `mutateFlow`; each action rechecks the current shared graph and uses the same utility to mutate the default `flow` storage key. No parallel graph store is introduced.
 - The Liveblocks `design-status` feed retains run-scoped start, processing, completion, and failure messages. A canvas panel subscribes for all members.
 - Run-specific ephemeral AI presence reuses `cursor` and `thinking` and the existing participant rendering, with bounded TTL and cleanup. Task retries are disabled to avoid replaying partially applied edits.
+
+## Shared AI activity (feature 24)
+
+- The sidebar shares the canvas RoomProvider. Room presence (`thinking: true`, including self) controls its working indicator and composer availability.
+- `ai-status-feed` is a generic Liveblocks feed, created/reused by the sidebar. Only the newest message is displayed after validating `{ text?: string }` with `types/tasks.ts`; malformed or textless latest messages display no stale prior text. No status is copied into graph storage or snapshots.
+
+## Collaborative sidebar chat (feature 25)
+
+- The sidebar creates/reuses the room-scoped `ai-chat` Liveblocks feed and subscribes with the existing room connection. Messages remain separate from `ai-status-feed`, graph storage, and snapshots.
+- `types/tasks.ts` validates chat payloads with Zod: sender ID/name, user/assistant role, nonempty content, and ISO timestamp. The client sends only user messages using authenticated room metadata, renders validated messages in server creation order, and can load earlier history.
+- Sending clears the draft only after success; pending sends prevent duplicates and failures preserve the draft. Existing thinking presence still controls composer availability. No AI replies or task triggering are added.
+
+## Functional AI sidebar (feature 26)
+
+- `hooks/use-ai-design-run.ts` publishes user prompts to `ai-chat`, requests `{ runId, publicToken }` from POST `/api/ai/design` using `{ prompt, roomId }`, and stores credentials only in local state. `useRealtimeRun` tracks terminal outcomes; the initiating mounted client publishes completion/error notices to the shared feed. Duplicate submissions and repeated completion notices are guarded.
+- Shared thinking presence and local run state disable the composer and reveal the generic status strip above it. Canvas changes continue through the existing Liveblocks flow subscription. No graph fetching or manual synchronization is added.
+- The frontend follows feature 26's specified contract. The unchanged feature 22 backend currently requires `projectId` and separate token issuance, so live integration remains blocked pending contract reconciliation. The existing task still publishes progress to `design-status`; no producer was added for `ai-status-feed`.
+- Navigating away/reloading discards local tracking; durable completion publication and run recovery are outside this frontend-only feature.
+
+## Spec generation backend (feature 27)
+
+- POST `/api/ai/spec` validates `{ roomId, chatHistory, nodes, edges }` with Zod, reusing chat payload and canvas snapshot validation. Membership lookup from roomId determines projectId; client projectId fields are ignored. The route triggers `generate-spec`, records TaskRun ownership, and returns `{ runId }` (202). Failed persistence attempts cancellation.
+- POST `/api/ai/spec/token` verifies initiating-user ownership and returns `{ token }`, granting exact-run read access for one hour with no-store headers.
+- `trigger/generate-spec.ts` validates the full task payload, uses the existing Gemini provider/model and bounded retry pattern, and reports processing/complete/error through run metadata. It returns plain Markdown as task output. Artifact persistence and frontend integration are deferred to later units; this task does not write a Spec record or Blob.
